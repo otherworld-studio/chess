@@ -9,8 +9,9 @@ public abstract class Piece : MonoBehaviour
 
     public Color opponent { get { return Opponent(color); } }
 
+    //Assume from != to
     public abstract bool IsLegalMove(Square from, Square to, Board board);
-    public virtual void Move(Square from, Square to, Board board) { return; }
+    public virtual void PreMove(Square from, Square to, Board board) { return; }
 
     public enum Type
     {

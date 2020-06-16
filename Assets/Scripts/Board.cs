@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+//TODO: when king is in check, prevent player from making moves that leave it in check
+
 public class Board : MonoBehaviour
 {
     public List<GameObject> piecePrefabs;
@@ -30,29 +32,22 @@ public class Board : MonoBehaviour
 
         if (Input.GetMouseButtonDown(0) && mouseSquare != null)
         {
-            Piece piece = Get(mouseSquare);
-            if (piece != null && piece.color == turn)
+            Piece p = Get(mouseSquare);
+            if (p != null && p.color == turn)
             {
                 selectedSquare = mouseSquare;
             }
             else if (selectedSquare != null)
             {
-                piece = Get(selectedSquare);
                 if (IsLegalMove(selectedSquare, mouseSquare)) {
                     justDoubleStepped = null;
                     Move(selectedSquare, mouseSquare);
-                    //Look for check/checkmate
+                    //TODO: look for check/checkmate
+                    turn = Piece.Opponent(turn);
                 }
                 selectedSquare = null;
             }
         }
-    }
-
-    public Piece Get(int file, int rank)
-    {
-        if (!Square.Exists(file, rank)) return null;
-
-        return board[rank * 8 + file];
     }
 
     public Piece Get(Square square)
@@ -65,25 +60,32 @@ public class Board : MonoBehaviour
         board[square.rank * 8 + square.file] = piece;
     }
 
-    private void Clear(Square square)
+    public void Take(Square square)
     {
         Destroy(Get(square).gameObject);
         Set(square, null);
     }
     
-    private void Move(Square from, Square to)
+    public void Move(Square from, Square to)
     {
-        Piece piece = Get(from);
-        piece.transform.position = GetTileCenter(to.file, to.rank);
+        Piece p = Get(from);
+        p.PreMove(from, to, this);//Tells the piece to do extra things if necessary (e.g. update variables, take a pawn via en passant, move a rook via castling)
+        if (Get(to) != null) Take(to);
         Set(from, null);
-        Set(to, piece);
-        piece.Move(from, to, this);//Tells the piece to update variables if necessary (e.g. pawn.justDoubleStepped, rook.hasMoved, king.hasMoved)
-        turn = Piece.Opponent(turn);
+        Set(to, p);
+        p.transform.position = GetTileCenter(to.file, to.rank);
     }
 
-    public void Promote(Pawn p)
+    public void Promote(Square square)
     {
-        //TODO
+        Destroy(Get(square).gameObject);
+        SpawnPiece(Piece.Type.Queen, turn, square);
+        //TODO: choose new piece
+    }
+
+    public bool IsThreatened(Square square, Piece.Color color)
+    {
+        //TODO: true iff square is threatened by color
     }
 
     private bool IsLegalMove(Square from, Square to)
@@ -91,14 +93,19 @@ public class Board : MonoBehaviour
         if (from == to) return false;
 
         Piece p = Get(from);
-        if (p == null || p.color != turn) return false;
+        if (p == null || p.color != turn || !p.IsLegalMove(from, to, this)) return false;
 
-        return p.IsLegalMove(from, to, this) && TODO_KING_CHECK?;
+        //TODO: will this work without PreMove?
+        Set(from, null);
+        Set(to, p);
+        bool kingInCheck = IsThreatened(KING_SPACE, Piece.Opponent(turn));
+        Set(to, null);
+        Set(from, p);
+        return !kingInCheck;
     }
 
-    // If toAsEmpty, return true iff all squares between from and to (NONINCLUSIVE) are empty.
-    // If !toAsEmpty, return true iff all squares between from and to, INCLUDING to, are empty
-    public bool IsUnblockedPath(Square from, Square to, bool toAsEmpty)
+    // Return true iff all squares are empty between from and to, NONINCLUSIVE.
+    public bool IsUnblockedPath(Square from, Square to)
     {
         int x = to.file - from.file;
         int y = to.rank - from.rank;
@@ -109,23 +116,23 @@ public class Board : MonoBehaviour
         y = from.rank + dRank;
         do
         {
-            if (Get(x, y) != null) return false;
+            if (Get(Square.At(x, y)) != null) return false;
             x += dFile;
             y += dRank;
         } while (x != to.file);
 
-        return toAsEmpty || Get(to) == null;
+        return true;
     }
 
     private Square GetMouseSquare()
     {
-        if (!Camera.main) return null; // TODO: NECESSARY?
+        if (!Camera.main) return null;
 
         RaycastHit hit;
         if (Physics.Raycast(Camera.main.ScreenPointToRay(Input.mousePosition), out hit, 25.0f, LayerMask.GetMask("Board")))
         {
             int x = (int)(hit.point.x / TILE_SIZE), y = (int)(hit.point.z / TILE_SIZE);
-            return (Square.Exists(x, y)) ? Square.Get(x, y) : null;
+            return (Square.Exists(x, y)) ? Square.At(x, y) : null;
         }
 
         return null;
@@ -149,25 +156,25 @@ public class Board : MonoBehaviour
         board = new Piece[64];
         for (int i = 0; i < 8; ++i)
         {
-            SpawnPiece(Piece.Type.Pawn, Piece.Color.White, Square.Get(i, 1));
-            SpawnPiece(Piece.Type.Pawn, Piece.Color.Black, Square.Get(i, 6));
+            SpawnPiece(Piece.Type.Pawn, Piece.Color.White, Square.At(i, 1));
+            SpawnPiece(Piece.Type.Pawn, Piece.Color.Black, Square.At(i, 6));
         }
-        SpawnPiece(Piece.Type.Knight, Piece.Color.White, Square.Get(1, 0));
-        SpawnPiece(Piece.Type.Knight, Piece.Color.White, Square.Get(6, 0));
-        SpawnPiece(Piece.Type.Knight, Piece.Color.Black, Square.Get(1, 7));
-        SpawnPiece(Piece.Type.Knight, Piece.Color.Black, Square.Get(6, 7));
-        SpawnPiece(Piece.Type.Bishop, Piece.Color.White, Square.Get(2, 0));
-        SpawnPiece(Piece.Type.Bishop, Piece.Color.White, Square.Get(5, 0));
-        SpawnPiece(Piece.Type.Bishop, Piece.Color.Black, Square.Get(2, 7));
-        SpawnPiece(Piece.Type.Bishop, Piece.Color.Black, Square.Get(5, 7));
-        SpawnPiece(Piece.Type.Rook, Piece.Color.White, Square.Get(0, 0));
-        SpawnPiece(Piece.Type.Rook, Piece.Color.White, Square.Get(7, 0));
-        SpawnPiece(Piece.Type.Rook, Piece.Color.Black, Square.Get(0, 7));
-        SpawnPiece(Piece.Type.Rook, Piece.Color.Black, Square.Get(7, 7));
-        SpawnPiece(Piece.Type.Queen, Piece.Color.White, Square.Get(3, 0));
-        SpawnPiece(Piece.Type.Queen, Piece.Color.Black, Square.Get(3, 7));
-        SpawnPiece(Piece.Type.King, Piece.Color.White, Square.Get(4, 0));
-        SpawnPiece(Piece.Type.King, Piece.Color.Black, Square.Get(4, 7));
+        SpawnPiece(Piece.Type.Knight, Piece.Color.White, Square.At(1, 0));
+        SpawnPiece(Piece.Type.Knight, Piece.Color.White, Square.At(6, 0));
+        SpawnPiece(Piece.Type.Knight, Piece.Color.Black, Square.At(1, 7));
+        SpawnPiece(Piece.Type.Knight, Piece.Color.Black, Square.At(6, 7));
+        SpawnPiece(Piece.Type.Bishop, Piece.Color.White, Square.At(2, 0));
+        SpawnPiece(Piece.Type.Bishop, Piece.Color.White, Square.At(5, 0));
+        SpawnPiece(Piece.Type.Bishop, Piece.Color.Black, Square.At(2, 7));
+        SpawnPiece(Piece.Type.Bishop, Piece.Color.Black, Square.At(5, 7));
+        SpawnPiece(Piece.Type.Rook, Piece.Color.White, Square.At(0, 0));
+        SpawnPiece(Piece.Type.Rook, Piece.Color.White, Square.At(7, 0));
+        SpawnPiece(Piece.Type.Rook, Piece.Color.Black, Square.At(0, 7));
+        SpawnPiece(Piece.Type.Rook, Piece.Color.Black, Square.At(7, 7));
+        SpawnPiece(Piece.Type.Queen, Piece.Color.White, Square.At(3, 0));
+        SpawnPiece(Piece.Type.Queen, Piece.Color.Black, Square.At(3, 7));
+        SpawnPiece(Piece.Type.King, Piece.Color.White, Square.At(4, 0));
+        SpawnPiece(Piece.Type.King, Piece.Color.Black, Square.At(4, 7));
 
         turn = Piece.Color.White;
     }

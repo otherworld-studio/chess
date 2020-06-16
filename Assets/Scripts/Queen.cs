@@ -6,6 +6,6 @@ public class Queen : Piece
     public override bool IsLegalMove(Square from, Square to, Board board)
     {
         Piece p = board.Get(to);
-        return ((p == null || p.color == opponent) && board.IsUnblockedPath(from, to, true));
+        return (p == null || p.color == opponent) && board.IsUnblockedPath(from, to);
     }
 }

@@ -10,7 +10,7 @@ public class Square
     }
 
     //Rank and file must not be out of bounds
-    public static Square Get(int file, int rank)
+    public static Square At(int file, int rank)
     {
         return SQUARES[rank * 8 + file];
     }
