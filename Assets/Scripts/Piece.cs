@@ -2,15 +2,18 @@
 
 public abstract class Piece : MonoBehaviour
 {
-    //DO NOT make this readonly because we want it serialized
+    // DO NOT make this readonly because we want it serialized
     public Color color;
 
     public abstract Type type { get; }
 
     public Color opponent { get { return Opponent(color); } }
 
-    //Assume from != to
+    // True iff this piece can make this move on this BOARD. Assume that FROM != TO and that it is this color's turn.
     public abstract bool IsLegalMove(Square from, Square to, Board board);
+    // True iff a king at square TO would be checked by this piece at square FROM. Assume FROM != TO.
+    public abstract bool IsChecking(Square from, Square to, Board board);
+
     public virtual void PreMove(Square from, Square to, Board board) { return; }
 
     public enum Type

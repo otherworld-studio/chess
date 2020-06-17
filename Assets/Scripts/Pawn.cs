@@ -9,7 +9,7 @@ public class Pawn : Piece
         int steps = (color == Color.White) ? to.rank - from.rank : from.rank - to.rank;
         if (from.file == to.file)
         {
-            return steps == 1 || steps == 2 && from.rank == ((color == Color.White) ? 1 : 6) && BOTH_SPACES_EMPTY;//TODO
+            return board.Get(to) == null && (steps == 1 || steps == 2 && from.rank == ((color == Color.White) ? 1 : 6) && board.IsUnblockedPath(from, to));
         }
         if (steps == 1 && Math.Abs(to.file - from.file) == 1)
         {
@@ -22,6 +22,12 @@ public class Pawn : Piece
         }
 
         return false;
+    }
+
+    public override bool IsChecking(Square from, Square to, Board board)
+    {
+        int steps = (color == Color.White) ? to.rank - from.rank : from.rank - to.rank;
+        return steps == 1 && Math.Abs(to.file - from.file) == 1;
     }
 
     public override void PreMove(Square from, Square to, Board board)

@@ -7,8 +7,11 @@ public class Knight : Piece
     public override bool IsLegalMove(Square from, Square to, Board board)
     {
         Piece p = board.Get(to);
-        if (p != null && p.color == color) return false;
+        return (p == null || p.color == opponent) && IsChecking(from, to, board);
+    }
 
+    public override bool IsChecking(Square from, Square to, Board board)
+    {
         int x = Math.Abs(to.file - from.file);
         int y = Math.Abs(to.rank - from.rank);
 

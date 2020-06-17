@@ -1,4 +1,5 @@
-﻿
+﻿using System.Collections;
+
 //Don't make this a struct (we want singletons with nullability - better suited as a class)
 public class Square
 {
@@ -13,6 +14,14 @@ public class Square
     public static Square At(int file, int rank)
     {
         return SQUARES[rank * 8 + file];
+    }
+
+    public static IEnumerable Iterator()
+    {
+        for (int i = 0; i < 64; ++i)
+        {
+            yield return SQUARES[i];
+        }
     }
 
     private Square(int index)
