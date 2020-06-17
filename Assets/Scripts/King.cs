@@ -7,7 +7,7 @@ public class King : Piece
     [NonSerialized]
     public bool hasMoved = false;
 
-    // Assume to is unthreatened - that is checked in board.IsLegalMove
+    // Assume that TO is unthreatened - that is checked in board.IsLegalMove
     public override bool IsLegalMove(Square from, Square to, Board board)
     {
         int x = to.file - from.file, y = to.rank - from.rank;
@@ -19,10 +19,10 @@ public class King : Piece
             if (rookSquare == null) return false; // No valid rook present
 
             Piece r = board.Get(rookSquare);
-            if (r.type != Type.Rook || ((Rook)r).hasMoved || !board.IsUnblockedPath(from, rookSquare) || board.IsChecked(from, opponent)) return false;
+            if (r.type != Type.Rook || ((Rook)r).hasMoved || !board.IsUnblockedPath(from, rookSquare) || board.IsCheckedSquare(from, opponent)) return false;
 
             Square newRookSquare = (x == 2) ? Square.At(5, from.rank) : Square.At(3, from.rank);
-            return !board.IsChecked(newRookSquare, opponent);
+            return !board.IsCheckedSquare(newRookSquare, opponent);
         }
 
         if (Math.Abs(y) > 1) return false;
@@ -31,9 +31,9 @@ public class King : Piece
         return p == null || p.color == opponent;
     }
 
-    public override bool IsChecking(Square from, Square to, Board board)
+    public override bool IsCheckedSquare(Square target, Square current, Board board)
     {
-        return Math.Abs(to.file - from.file) <= 1 && Math.Abs(to.rank - from.rank) <= 1;
+        return Math.Abs(target.file - current.file) <= 1 && Math.Abs(target.rank - current.rank) <= 1;
     }
 
     public override void PreMove(Square from, Square to, Board board)

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -69,6 +70,7 @@ public class Board : MonoBehaviour
                     if (Checkmate(Piece.Opponent(turn)))
                     {
                         //TODO
+                        Debug.Log("CHECKMATE BITCHES");
                     }
                     turn = Piece.Opponent(turn);
                 }
@@ -77,14 +79,14 @@ public class Board : MonoBehaviour
         }
     }
 
-    public Piece Get(Square square)
-    {
-        return board[square.rank * 8 + square.file];
-    }
-
     private void Set(Square square, Piece piece)
     {
         board[square.rank * 8 + square.file] = piece;
+    }
+
+    public Piece Get(Square square)
+    {
+        return board[square.rank * 8 + square.file];
     }
 
     public void Move(Square from, Square to)
@@ -108,53 +110,19 @@ public class Board : MonoBehaviour
         Destroy(Get(square).gameObject);
         Set(square, null);
         SpawnPiece(Piece.Type.Queen, turn, square);
-        //TODO: choose new piece (queen, knight, bishop, rook)
+        //TODO: allow player to choose new piece from (queen, knight, bishop, rook)
     }
 
-    // COLOR is the opponent's color
-    // Q: Can I move my king to this square? A:
-    public bool IsChecked(Square square, Piece.Color color)
+    // Q: Could I move my king to this square? A:
+    public bool IsCheckedSquare(Square square, Piece.Color color) // COLOR is the opponent's color
     {
         foreach (Square s in Square.Iterator())
         {
             Piece p = Get(s);
-            if (p != null && p.color == color && p.IsChecking(s, square, this)) return true;
+            if (p != null && p.color == color && p.IsCheckedSquare(square, s, this)) return true;
         }
 
         return false;
-    }
-
-    private bool IsLegalMove(Square from, Square to)
-    {
-        if (from == to) return false;
-
-        Piece p = Get(from);
-        if (p == null || p.color != turn || !p.IsLegalMove(from, to, this)) return false;
-
-        // In order to determine whether the king will be in check, we copy the game state, perform the move, and reset.
-        Piece[] boardCopy = new Piece[64];
-        Array.Copy(board, boardCopy, 64);
-        Pawn justDoubleSteppedCopy = justDoubleStepped;
-
-        p.PreMove(from, to, this);
-        Set(from, null);
-        Set(to, p);
-
-        bool kingInCheck = false;
-        foreach (Square s in Square.Iterator())
-        {
-            p = Get(s);
-            if (p != null && p.type == Piece.Type.King && p.color == turn)
-            {
-                kingInCheck = IsChecked(s, Piece.Opponent(turn));
-                break;
-            }
-        }
-
-        Array.Copy(boardCopy, board, 64);
-        justDoubleStepped = justDoubleSteppedCopy;
-
-        return !kingInCheck;
     }
 
     // Return true iff all squares are empty between FROM and TO, NONINCLUSIVE.
@@ -174,10 +142,64 @@ public class Board : MonoBehaviour
         return true;
     }
 
-    // True iff COLOR's king is in checkmate
-    public bool Checkmate(Piece.Color color)
+    private bool IsLegalMove(Square from, Square to)
     {
-        //TODO: iterators
+        Debug.Assert(from != to);
+
+        Piece p = Get(from);
+        Debug.Assert(p != null);
+        if (!p.IsLegalMove(from, to, this)) return false;
+
+        // In order to determine whether the king will be in check, we copy the game state, perform the move, and revert.
+        Piece[] boardCopy = new Piece[64];
+        Array.Copy(board, boardCopy, 64);
+        Pawn justDoubleSteppedCopy = justDoubleStepped;
+
+        p.PreMove(from, to, this);
+        Set(from, null);
+        Set(to, p);
+
+        bool kingInCheck = false;
+        foreach (Square s in Square.Iterator())
+        {
+            Piece q = Get(s);
+            if (q != null && q.type == Piece.Type.King && q.color == p.color)
+            {
+                kingInCheck = IsCheckedSquare(s, Piece.Opponent(q.color));
+                break;
+            }
+        }
+
+        Array.Copy(boardCopy, board, 64);
+        justDoubleStepped = justDoubleSteppedCopy;
+        //TODO: revert hasMoved for each rook/king
+
+        return !kingInCheck;
+    }
+
+    // True iff COLOR's king is in checkmate
+    private bool Checkmate(Piece.Color color)
+    {
+        //return !LegalMovesIterator(color).Any();
+        return false;
+    }
+
+    /*
+    private IEnumerable<Move> LegalMovesIterator(Piece.Color color)
+    {
+        // TODO: make a legal move iterator for each piece that takes as an argument its current position and the board
+        // Then iterate over the iterators of all pieces of this color, yielding only legal moves
+        // Don't call IsLegalMove at all - this will in turn call piece.IsLegalMove() which is unnecessary
+        // Instead perform all other steps of IsLegalMove
+    }
+    */
+
+    private void SpawnPiece(Piece.Type type, Piece.Color color, Square square)
+    {
+        Debug.Log("Spawning " + color + " " + type + " at x = " + square.file + ", y = " + square.rank);
+        Quaternion rotation = (color == Piece.Color.White) ? Quaternion.identity : Quaternion.Euler(Vector3.up * 180f);
+        GameObject gamePiece = Instantiate(piecePrefabs[(int)type + 6 * (int)color], GetTileCenter(square.file, square.rank), Quaternion.identity) as GameObject;
+        Set(square, gamePiece.GetComponent<Piece>());
     }
 
     private Square GetMouseSquare()
@@ -192,14 +214,6 @@ public class Board : MonoBehaviour
         }
 
         return null;
-    }
-
-    private void SpawnPiece(Piece.Type type, Piece.Color color, Square square)
-    {
-        Debug.Log("Spawning " + color + " " + type + " at x = " + square.file + ", y = " + square.rank);
-        Quaternion rotation = (color == Piece.Color.White) ? Quaternion.identity : Quaternion.Euler(Vector3.up * 180f);
-        GameObject gamePiece = Instantiate(piecePrefabs[(int)type + 6 * (int)color], GetTileCenter(square.file, square.rank), Quaternion.identity) as GameObject;
-        Set(square, gamePiece.GetComponent<Piece>());
     }
 
     private Vector3 GetTileCenter(int file, int rank)

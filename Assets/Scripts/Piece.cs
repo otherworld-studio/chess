@@ -11,8 +11,8 @@ public abstract class Piece : MonoBehaviour
 
     // True iff this piece can make this move on this BOARD. Assume that FROM != TO and that it is this color's turn.
     public abstract bool IsLegalMove(Square from, Square to, Board board);
-    // True iff a king at square TO would be checked by this piece at square FROM. Assume FROM != TO.
-    public abstract bool IsChecking(Square from, Square to, Board board);
+    // True iff a king located at TARGET would be checked by this piece at its CURRENT position. Assume TARGET != CURRENT.
+    public abstract bool IsCheckedSquare(Square target, Square current, Board board);
 
     public virtual void PreMove(Square from, Square to, Board board) { return; }
 

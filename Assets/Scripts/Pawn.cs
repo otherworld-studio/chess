@@ -18,16 +18,16 @@ public class Pawn : Piece
 
             // En passant
             p = board.Get(Square.At(to.file, from.rank));
-            return p != null && p.color == opponent && p == board.justDoubleStepped;
+            return p != null && p == board.justDoubleStepped;
         }
 
         return false;
     }
 
-    public override bool IsChecking(Square from, Square to, Board board)
+    public override bool IsCheckedSquare(Square target, Square current, Board board)
     {
-        int steps = (color == Color.White) ? to.rank - from.rank : from.rank - to.rank;
-        return steps == 1 && Math.Abs(to.file - from.file) == 1;
+        int steps = (color == Color.White) ? target.rank - current.rank : current.rank - target.rank;
+        return steps == 1 && Math.Abs(target.file - current.file) == 1;
     }
 
     public override void PreMove(Square from, Square to, Board board)

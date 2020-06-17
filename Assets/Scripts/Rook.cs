@@ -10,12 +10,12 @@ public class Rook : Piece
     public override bool IsLegalMove(Square from, Square to, Board board)
     {
         Piece p = board.Get(to);
-        return (p == null || p.color == opponent) && IsChecking(from, to, board);
+        return (p == null || p.color == opponent) && IsCheckedSquare(to, from, board);
     }
 
-    public override bool IsChecking(Square from, Square to, Board board)
+    public override bool IsCheckedSquare(Square target, Square current, Board board)
     {
-        return (from.file == to.file || from.rank == to.rank) && board.IsUnblockedPath(from, to);
+        return (current.file == target.file || current.rank == target.rank) && board.IsUnblockedPath(current, target);
     }
 
     public override void PreMove(Square from, Square to, Board board)

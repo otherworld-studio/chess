@@ -7,11 +7,11 @@ public class Bishop : Piece
     public override bool IsLegalMove(Square from, Square to, Board board)
     {
         Piece p = board.Get(to);
-        return (p == null || p.color == opponent) && IsChecking(from, to, board);
+        return (p == null || p.color == opponent) && IsCheckedSquare(to, from, board);
     }
 
-    public override bool IsChecking(Square from, Square to, Board board)
+    public override bool IsCheckedSquare(Square target, Square current, Board board)
     {
-        return Math.Abs(to.file - from.file) == Math.Abs(to.rank - from.rank) && board.IsUnblockedPath(from, to);
+        return Math.Abs(target.file - current.file) == Math.Abs(target.rank - current.rank) && board.IsUnblockedPath(current, target);
     }
 }
