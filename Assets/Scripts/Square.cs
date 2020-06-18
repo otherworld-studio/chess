@@ -6,6 +6,7 @@ public class Square
 {
     public readonly int file, rank;
 
+    // Calls StraightLine(dir) in the direction of TO, stopping at TO (without returning it)
     public IEnumerable StraightLine(Square to)
     {
         int x = to.file - file, y = to.rank - rank;

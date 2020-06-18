@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 
 public class Pawn : Piece
 {
@@ -32,7 +33,41 @@ public class Pawn : Piece
 
     public override IEnumerable<Square> LegalMoves(Square from, Board board)
     {
-        //TODO
+        int y = (color == Color.White) ? from.rank + 1 : from.rank - 1;
+        if (!Square.Exists(from.file, y)) yield break;
+
+        Square s = Square.At(from.file, y);
+        if (board.Get(s) == null)
+        {
+            yield return s;
+
+            if (from.rank == ((color == Color.White) ? 1 : 6))
+            {
+                s = Square.At(from.file, (color == Color.White) ? 3 : 4);
+                if (board.Get(s) == null)
+                {
+                    yield return s;
+                }
+            }
+        }
+
+        int[] files = { from.file - 1, from.file + 1 };
+        foreach (int x in files) {
+            if (Square.Exists(x, y))
+            {
+                s = Square.At(x, y);
+                Piece p = board.Get(s);
+                if (p != null)
+                {
+                    if (p.color == opponent) yield return s;
+                }
+                else
+                {
+                    p = board.Get(Square.At(x, from.rank));
+                    if (p != null && p == board.justDoubleStepped) yield return s;
+                }
+            }
+        }
     }
 
     public override void PreMove(Square from, Square to, Board board)

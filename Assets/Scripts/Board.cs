@@ -7,13 +7,14 @@ public class Board : MonoBehaviour
 {
     public List<GameObject> piecePrefabs;
 
+    // The entire game state in 4 members
     private Piece[] board;
     [NonSerialized]
     public List<Piece> hasMoved; // Contains only kings and rooks that have moved at least once
     [NonSerialized]
     public Pawn justDoubleStepped;
-
     private Piece.Color turn;
+
     private Square selectedSquare;
 
     private static readonly float TILE_SIZE = 1.0f;
@@ -208,7 +209,6 @@ public class Board : MonoBehaviour
 
     private void SpawnPiece(Piece.Type type, Piece.Color color, Square square)
     {
-        Debug.Log("Spawning " + color + " " + type + " at x = " + square.file + ", y = " + square.rank);
         Quaternion rotation = (color == Piece.Color.White) ? Quaternion.identity : Quaternion.Euler(Vector3.up * 180f);
         GameObject gamePiece = Instantiate(piecePrefabs[(int)type + 6 * (int)color], GetTileCenter(square.file, square.rank), rotation) as GameObject;
         Set(square, gamePiece.GetComponent<Piece>());

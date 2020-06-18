@@ -3,7 +3,7 @@ using UnityEngine;
 
 public abstract class Piece : MonoBehaviour
 {
-    // DO NOT make this readonly because we want it serialized
+    // DO NOT make this readonly, we want it serialized
     public Color color;
 
     public abstract Type type { get; }
@@ -12,7 +12,7 @@ public abstract class Piece : MonoBehaviour
 
     // True iff this piece can make this move on this BOARD. Assume that FROM != TO and that it is this color's turn.
     public abstract bool IsLegalMove(Square from, Square to, Board board);
-    // True iff a king located at TARGET would be checked by this piece at its CURRENT position. Assume TARGET != CURRENT.
+    // True iff a king located at TARGET would be in check due to this piece at its CURRENT position, on the current BOARD. Assume TARGET != CURRENT.
     public abstract bool IsCheckedSquare(Square target, Square current, Board board);
     public abstract IEnumerable<Square> LegalMoves(Square from, Board board);
 
