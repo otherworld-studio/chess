@@ -30,6 +30,11 @@ public class Pawn : Piece
         return steps == 1 && Math.Abs(target.file - current.file) == 1;
     }
 
+    public override IEnumerable<Square> LegalMoves(Square from, Board board)
+    {
+        //TODO
+    }
+
     public override void PreMove(Square from, Square to, Board board)
     {
         if (Math.Abs(to.rank - from.rank) == 2)

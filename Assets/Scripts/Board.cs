@@ -9,18 +9,21 @@ public class Board : MonoBehaviour
 
     private Piece[] board;
     [NonSerialized]
+    public List<Piece> hasMoved; // Contains only kings and rooks that have moved at least once
+    [NonSerialized]
     public Pawn justDoubleStepped;
 
     private Piece.Color turn;
     private Square selectedSquare;
 
-    private const float TILE_SIZE = 1.0f;
-    private static readonly Vector3 right = Vector3.right * TILE_SIZE;
-    private static readonly Vector3 up = Vector3.forward * TILE_SIZE;
+    private static readonly float TILE_SIZE = 1.0f;
+    private static readonly Vector3 RIGHT = Vector3.right * TILE_SIZE;
+    private static readonly Vector3 UP = Vector3.forward * TILE_SIZE;
 
     void Awake()
     {
         board = new Piece[64];
+        hasMoved = new List<Piece>();
     }
 
     void Start()
@@ -107,16 +110,17 @@ public class Board : MonoBehaviour
 
     public void Promote(Square square)
     {
-        Destroy(Get(square).gameObject);
+        Piece p = Get(square);
+        Destroy(p.gameObject);
         Set(square, null);
-        SpawnPiece(Piece.Type.Queen, turn, square);
+        SpawnPiece(Piece.Type.Queen, p.color, square);
         //TODO: allow player to choose new piece from (queen, knight, bishop, rook)
     }
 
     // Q: Could I move my king to this square? A:
     public bool IsCheckedSquare(Square square, Piece.Color color) // COLOR is the opponent's color
     {
-        foreach (Square s in Square.Iterator())
+        foreach (Square s in Square.squares)
         {
             Piece p = Get(s);
             if (p != null && p.color == color && p.IsCheckedSquare(square, s, this)) return true;
@@ -128,77 +132,85 @@ public class Board : MonoBehaviour
     // Return true iff all squares are empty between FROM and TO, NONINCLUSIVE.
     public bool IsUnblockedPath(Square from, Square to)
     {
-        int x = to.file - from.file, y = to.rank - from.rank;
-        if (x != 0 && y != 0 && Math.Abs(x) != Math.Abs(y)) return false;
-
-        int dFile = Math.Sign(x), dRank = Math.Sign(y);
-        Square s = Square.At(from.file + dFile, from.rank + dRank);
-        do
+        foreach (Square s in from.StraightLine(to))
         {
             if (Get(s) != null) return false;
-            s = Square.At(s.file + dFile, s.rank + dRank);
-        } while (s != to);
+        }
 
         return true;
     }
 
     private bool IsLegalMove(Square from, Square to)
     {
-        Debug.Assert(from != to);
+        Debug.Assert(from != to); // DEBUG
 
+        return Get(from).IsLegalMove(from, to, this) && IsSafeMove(from, to);
+    }
+
+    // True iff the king's square will not be under attack as a result of this move.
+    private bool IsSafeMove(Square from, Square to)
+    {
         Piece p = Get(from);
-        Debug.Assert(p != null);
-        if (!p.IsLegalMove(from, to, this)) return false;
 
-        // In order to determine whether the king will be in check, we copy the game state, perform the move, and revert.
+        // Copy the game state, perform the move, and revert.
         Piece[] boardCopy = new Piece[64];
         Array.Copy(board, boardCopy, 64);
+        List<Piece> hasMovedCopy = new List<Piece>(hasMoved);
         Pawn justDoubleSteppedCopy = justDoubleStepped;
 
         p.PreMove(from, to, this);
         Set(from, null);
         Set(to, p);
 
-        bool kingInCheck = false;
-        foreach (Square s in Square.Iterator())
+        bool kingInCheck = KingInCheck(p.color);
+
+        board = boardCopy;
+        hasMoved = hasMovedCopy;
+        justDoubleStepped = justDoubleSteppedCopy;
+
+        return !kingInCheck;
+    }
+
+    // True iff COLOR's king is in check
+    private bool KingInCheck(Piece.Color color)
+    {
+        foreach (Square s in Square.squares)
         {
             Piece q = Get(s);
-            if (q != null && q.type == Piece.Type.King && q.color == p.color)
+            if (q != null && q.type == Piece.Type.King && q.color == color)
             {
-                kingInCheck = IsCheckedSquare(s, Piece.Opponent(q.color));
-                break;
+                return IsCheckedSquare(s, Piece.Opponent(q.color));
             }
         }
 
-        Array.Copy(boardCopy, board, 64);
-        justDoubleStepped = justDoubleSteppedCopy;
-        //TODO: revert hasMoved for each rook/king
-
-        return !kingInCheck;
+        throw new Exception("no king found"); // DEBUG
     }
 
     // True iff COLOR's king is in checkmate
     private bool Checkmate(Piece.Color color)
     {
-        //return !LegalMovesIterator(color).Any();
-        return false;
+        return !LegalMoves(color).Any();
     }
 
-    /*
-    private IEnumerable<Move> LegalMovesIterator(Piece.Color color)
+    private IEnumerable<Move> LegalMoves(Piece.Color color)
     {
-        // TODO: make a legal move iterator for each piece that takes as an argument its current position and the board
-        // Then iterate over the iterators of all pieces of this color, yielding only legal moves
-        // Don't call IsLegalMove at all - this will in turn call piece.IsLegalMove() which is unnecessary
-        // Instead perform all other steps of IsLegalMove
+        foreach (Square from in Square.squares)
+        {
+            Piece p = Get(from);
+            if (p == null || p.color != color) continue;
+
+            foreach (Square to in p.LegalMoves(from, this))
+            {
+                if (IsSafeMove(from, to)) yield return new Move(from, to);
+            }
+        }
     }
-    */
 
     private void SpawnPiece(Piece.Type type, Piece.Color color, Square square)
     {
         Debug.Log("Spawning " + color + " " + type + " at x = " + square.file + ", y = " + square.rank);
         Quaternion rotation = (color == Piece.Color.White) ? Quaternion.identity : Quaternion.Euler(Vector3.up * 180f);
-        GameObject gamePiece = Instantiate(piecePrefabs[(int)type + 6 * (int)color], GetTileCenter(square.file, square.rank), Quaternion.identity) as GameObject;
+        GameObject gamePiece = Instantiate(piecePrefabs[(int)type + 6 * (int)color], GetTileCenter(square.file, square.rank), rotation) as GameObject;
         Set(square, gamePiece.GetComponent<Piece>());
     }
 
@@ -218,31 +230,31 @@ public class Board : MonoBehaviour
 
     private Vector3 GetTileCenter(int file, int rank)
     {
-        return right * (file + 0.5f) + up * (rank + 0.5f);
+        return RIGHT * (file + 0.5f) + UP * (rank + 0.5f);
     }
 
     private void Draw(Square mouseSquare)
     {
-        Vector3 widthLine = right * 8;
-        Vector3 depthLine = up * 8;
+        Vector3 widthLine = RIGHT * 8;
+        Vector3 depthLine = UP * 8;
         for (int i = 0; i <= 8; ++i)
         {
-            Vector3 start = up * i;
+            Vector3 start = UP * i;
             Debug.DrawLine(start, start + widthLine);
 
         }
         for (int j = 0; j <= 8; ++j)
         {
-            Vector3 start = right * j;
+            Vector3 start = RIGHT * j;
             Debug.DrawLine(start, start + depthLine);
         }
 
         if (mouseSquare != null) {
-            Debug.DrawLine(right * mouseSquare.file + up * mouseSquare.rank,
-                           right * (mouseSquare.file + 1) + up * (mouseSquare.rank + 1));
+            Debug.DrawLine(RIGHT * mouseSquare.file + UP * mouseSquare.rank,
+                           RIGHT * (mouseSquare.file + 1) + UP * (mouseSquare.rank + 1));
 
-            Debug.DrawLine(right * mouseSquare.file + up * (mouseSquare.rank + 1),
-                           right * (mouseSquare.file + 1) + up * mouseSquare.rank);
+            Debug.DrawLine(RIGHT * mouseSquare.file + UP * (mouseSquare.rank + 1),
+                           RIGHT * (mouseSquare.file + 1) + UP * mouseSquare.rank);
         }
     }
 }

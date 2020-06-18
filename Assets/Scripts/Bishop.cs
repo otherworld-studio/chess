@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 
 public class Bishop : Piece
 {
@@ -14,4 +15,24 @@ public class Bishop : Piece
     {
         return Math.Abs(target.file - current.file) == Math.Abs(target.rank - current.rank) && board.IsUnblockedPath(current, target);
     }
+
+    public override IEnumerable<Square> LegalMoves(Square from, Board board)
+    {
+        for (int dir = 1; dir < 8; dir += 2)
+        {
+            foreach (Square to in from.StraightLine(dir))
+            {
+                Piece p = board.Get(to);
+                if (p != null)
+                {
+                    if (p.color == opponent) yield return to;
+                    break;
+                }
+
+                yield return to;
+            }
+        }
+    }
 }
+
+

@@ -1,9 +1,80 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 
 //Don't make this a struct (we want singletons with nullability - better suited as a class)
 public class Square
 {
     public readonly int file, rank;
+
+    public IEnumerable StraightLine(Square to)
+    {
+        int x = to.file - file, y = to.rank - rank;
+        if (x != 0 && y != 0 && Math.Abs(x) != Math.Abs(y))
+        {
+            throw new Exception("attempted to draw a straight line between invalid squares"); // DEBUG
+        }
+
+        int dir = 0;
+        switch(Math.Sign(x))
+        {
+            case 1:
+                switch(Math.Sign(y))
+                {
+                    case 1:
+                        dir = 1;
+                        break;
+                    case -1:
+                        dir = 7;
+                        break;
+                }
+                break;
+            case 0:
+                switch(Math.Sign(y))
+                {
+                    case 1:
+                        dir = 2;
+                        break;
+                    case -1:
+                        dir = 6;
+                        break;
+                }
+                break;
+            case -1:
+                switch(Math.Sign(y))
+                {
+                    case 1:
+                        dir = 3;
+                        break;
+                    case 0:
+                        dir = 4;
+                        break;
+                    case -1:
+                        dir = 5;
+                        break;
+                }
+                break;
+        }
+
+        foreach (Square s in StraightLine(dir))
+        {
+            if (s == to) yield break;
+            yield return s;
+        }
+    }
+
+    public IEnumerable StraightLine(int dir)
+    {
+        int dFile = DIRECTIONS[dir, 0], dRank = DIRECTIONS[dir, 1];
+        int x = file + dFile, y = rank + dRank;
+        while (Exists(x, y))
+        {
+            yield return At(x, y);
+            x += dFile;
+            y += dRank;
+        }
+    }
+
+    public static IEnumerable squares { get { return Squares(); } }
 
     public static bool Exists(int file, int rank)
     {
@@ -16,7 +87,7 @@ public class Square
         return SQUARES[rank * 8 + file];
     }
 
-    public static IEnumerable Iterator()
+    private static IEnumerable Squares()
     {
         for (int i = 0; i < 64; ++i)
         {
@@ -39,4 +110,6 @@ public class Square
     }
 
     private static readonly Square[] SQUARES = new Square[64];
+
+    private static readonly int[,] DIRECTIONS = { { 1, 0 }, { 1, 1 }, { 0, 1 }, { -1, 1 }, { -1, 0 }, { -1, -1 }, { 0, -1 }, { 1, -1 } };
 }

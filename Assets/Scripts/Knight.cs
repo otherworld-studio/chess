@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 
 public class Knight : Piece
 {
@@ -25,5 +26,23 @@ public class Knight : Piece
         }
 
         return false;
+    }
+
+    public override IEnumerable<Square> LegalMoves(Square from, Board board)
+    {
+        int[,] squares = { { from.file + 2, from.rank + 1 }, { from.file + 1, from.rank + 2 },
+                           { from.file - 1, from.rank + 2 }, { from.file - 2, from.rank + 1 },
+                           { from.file - 2, from.rank - 1 }, { from.file - 1, from.rank - 2 },
+                           { from.file + 1, from.rank - 2 }, { from.file + 2, from.rank - 1 } };
+
+        for (int i = 0; i < 8; ++i)
+        {
+            int x = squares[i, 0], y = squares[i, 1];
+            if (!Square.Exists(x, y)) continue;
+
+            Square to = Square.At(x, y);
+            Piece p = board.Get(to);
+            if (p == null || p.color == opponent) yield return to;
+        }
     }
 }

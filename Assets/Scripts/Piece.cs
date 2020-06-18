@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using UnityEngine;
 
 public abstract class Piece : MonoBehaviour
 {
@@ -13,6 +14,7 @@ public abstract class Piece : MonoBehaviour
     public abstract bool IsLegalMove(Square from, Square to, Board board);
     // True iff a king located at TARGET would be checked by this piece at its CURRENT position. Assume TARGET != CURRENT.
     public abstract bool IsCheckedSquare(Square target, Square current, Board board);
+    public abstract IEnumerable<Square> LegalMoves(Square from, Board board);
 
     public virtual void PreMove(Square from, Square to, Board board) { return; }
 

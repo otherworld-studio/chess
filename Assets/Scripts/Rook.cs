@@ -1,11 +1,8 @@
-﻿using System;
+﻿using System.Collections.Generic;
 
 public class Rook : Piece
 {
     public override Type type { get { return Type.Rook; } }
-
-    [NonSerialized]
-    public bool hasMoved = false;
 
     public override bool IsLegalMove(Square from, Square to, Board board)
     {
@@ -18,8 +15,26 @@ public class Rook : Piece
         return (current.file == target.file || current.rank == target.rank) && board.IsUnblockedPath(current, target);
     }
 
+    public override IEnumerable<Square> LegalMoves(Square from, Board board)
+    {
+        for (int dir = 0; dir < 8; dir += 2)
+        {
+            foreach (Square to in from.StraightLine(dir))
+            {
+                Piece p = board.Get(to);
+                if (p != null)
+                {
+                    if (p.color == opponent) yield return to;
+                    break;
+                }
+
+                yield return to;
+            }
+        }
+    }
+
     public override void PreMove(Square from, Square to, Board board)
     {
-        hasMoved = true;
+        board.hasMoved.Add(this);
     }
 }
