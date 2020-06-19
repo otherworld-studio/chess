@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 public class Queen : Piece
 {
@@ -12,7 +13,8 @@ public class Queen : Piece
 
     public override bool IsCheckedSquare(Square target, Square current, Board board)
     {
-        return board.IsUnblockedPath(current, target);
+        int x = target.file - current.file, y = target.rank - current.rank;
+        return (x == 0 || y == 0 || Math.Abs(x) == Math.Abs(y)) && board.IsUnblockedPath(current, target);
     }
 
     public override IEnumerable<Square> LegalMoves(Square from, Board board)

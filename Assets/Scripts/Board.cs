@@ -17,7 +17,7 @@ public class Board : MonoBehaviour
 
     private Square selectedSquare;
 
-    private static readonly float TILE_SIZE = 1.0f;
+    private static readonly float TILE_SIZE = 1.5f;
     private static readonly Vector3 RIGHT = Vector3.right * TILE_SIZE;
     private static readonly Vector3 UP = Vector3.forward * TILE_SIZE;
 
@@ -130,7 +130,7 @@ public class Board : MonoBehaviour
         return false;
     }
 
-    // Return true iff all squares are empty between FROM and TO, NONINCLUSIVE.
+    // Return true iff all squares are empty between FROM and TO, NONINCLUSIVE. There must be a straight-line path between FROM and TO.
     public bool IsUnblockedPath(Square from, Square to)
     {
         foreach (Square s in from.StraightLine(to))
@@ -143,7 +143,7 @@ public class Board : MonoBehaviour
 
     private bool IsLegalMove(Square from, Square to)
     {
-        Debug.Assert(from != to); // DEBUG
+        Debug.Assert(from != to);
 
         return Get(from).IsLegalMove(from, to, this) && IsSafeMove(from, to);
     }
@@ -184,7 +184,9 @@ public class Board : MonoBehaviour
             }
         }
 
-        throw new Exception("no king found"); // DEBUG
+        Debug.Assert(false);
+
+        return false;
     }
 
     // True iff COLOR's king is in checkmate

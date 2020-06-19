@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using UnityEngine;
 
 //Don't make this a struct (we want singletons with nullability - better suited as a class)
 public class Square
@@ -10,10 +11,7 @@ public class Square
     public IEnumerable StraightLine(Square to)
     {
         int x = to.file - file, y = to.rank - rank;
-        if (x != 0 && y != 0 && Math.Abs(x) != Math.Abs(y))
-        {
-            throw new Exception("attempted to draw a straight line between invalid squares"); // DEBUG
-        }
+        Debug.Assert(x == 0 || y == 0 || Math.Abs(x) == Math.Abs(y));
 
         int dir = 0;
         switch(Math.Sign(x))
