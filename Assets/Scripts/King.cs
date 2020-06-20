@@ -67,7 +67,7 @@ public class King : Piece
         }
     }
 
-    public override void PreMove(Square from, Square to, Board board)
+    public override void PreMove(Square from, Square to, Board board, Type promotion = Type.Pawn, bool modifyGameObjects = true)
     {
         board.hasMoved.Add(this);
 
@@ -76,11 +76,11 @@ public class King : Piece
         {
             if (x == 2)
             {
-                board.Move(Square.At(7, from.rank), Square.At(5, from.rank));
+                board.MakeMove(Square.At(7, from.rank), Square.At(5, from.rank), modifyGameObjects: modifyGameObjects);
             }
             else
             {
-                board.Move(Square.At(0, from.rank), Square.At(3, from.rank));
+                board.MakeMove(Square.At(0, from.rank), Square.At(3, from.rank), modifyGameObjects: modifyGameObjects);
             }
         }
     }

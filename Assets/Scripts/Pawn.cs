@@ -70,7 +70,7 @@ public class Pawn : Piece
         }
     }
 
-    public override void PreMove(Square from, Square to, Board board)
+    public override void PreMove(Square from, Square to, Board board, Type promotion = Type.Pawn, bool modifyGameObjects = true)
     {
         if (Math.Abs(to.rank - from.rank) == 2)
         {
@@ -80,20 +80,20 @@ public class Pawn : Piece
         {
             if (from.file != to.file && board.Get(to) == null)
             {
-                board.Take(Square.At(to.file, from.rank)); // En passant
+                board.Take(Square.At(to.file, from.rank), modifyGameObjects); // En passant
             }
             else if (color == Color.White)
             {
                 if (to.rank == 7)
                 {
-                    board.Promote(from);
+                    board.Promote(from, promotion, modifyGameObjects);
                 }
             }
             else
             {
                 if (to.rank == 0)
                 {
-                    board.Promote(from);
+                    board.Promote(from, promotion, modifyGameObjects);
                 }
             }
         }

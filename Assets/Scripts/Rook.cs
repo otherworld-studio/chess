@@ -33,7 +33,7 @@ public class Rook : Piece
         }
     }
 
-    public override void PreMove(Square from, Square to, Board board)
+    public override void PreMove(Square from, Square to, Board board, Type promotion = Type.Pawn, bool modifyGameObjects = true)
     {
         board.hasMoved.Add(this);
     }

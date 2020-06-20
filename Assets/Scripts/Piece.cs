@@ -10,13 +10,15 @@ public abstract class Piece : MonoBehaviour
 
     public Color opponent { get { return Opponent(color); } }
 
-    // True iff this piece can make this move on this BOARD. Assume that FROM != TO and that it is this color's turn.
+    // True iff this piece can make this move on this BOARD. Assume that FROM != TO and that it is this color's turn. Doesn't care if the king is in check or is put into a checked square as a result of this move.
     public abstract bool IsLegalMove(Square from, Square to, Board board);
     // True iff a king located at TARGET would be in check due to this piece at its CURRENT position, on the current BOARD. Assume TARGET != CURRENT.
     public abstract bool IsCheckedSquare(Square target, Square current, Board board);
+
     public abstract IEnumerable<Square> LegalMoves(Square from, Board board);
 
-    public virtual void PreMove(Square from, Square to, Board board) { return; }
+    // Assumes the move FROM -> TO is legal, and that promotion != Type.King
+    public virtual void PreMove(Square from, Square to, Board board, Type promotion = Type.Pawn, bool modifyGameObjects = true) { return; }
 
     public enum Type
     {

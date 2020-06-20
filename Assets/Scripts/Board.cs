@@ -29,29 +29,9 @@ public class Board : MonoBehaviour
 
     void Start()
     {
-        for (int i = 0; i < 8; ++i)
-        {
-            SpawnPiece(Piece.Type.Pawn, Piece.Color.White, Square.At(i, 1));
-            SpawnPiece(Piece.Type.Pawn, Piece.Color.Black, Square.At(i, 6));
-        }
-        SpawnPiece(Piece.Type.Knight, Piece.Color.White, Square.At(1, 0));
-        SpawnPiece(Piece.Type.Knight, Piece.Color.White, Square.At(6, 0));
-        SpawnPiece(Piece.Type.Knight, Piece.Color.Black, Square.At(1, 7));
-        SpawnPiece(Piece.Type.Knight, Piece.Color.Black, Square.At(6, 7));
-        SpawnPiece(Piece.Type.Bishop, Piece.Color.White, Square.At(2, 0));
-        SpawnPiece(Piece.Type.Bishop, Piece.Color.White, Square.At(5, 0));
-        SpawnPiece(Piece.Type.Bishop, Piece.Color.Black, Square.At(2, 7));
-        SpawnPiece(Piece.Type.Bishop, Piece.Color.Black, Square.At(5, 7));
-        SpawnPiece(Piece.Type.Rook, Piece.Color.White, Square.At(0, 0));
-        SpawnPiece(Piece.Type.Rook, Piece.Color.White, Square.At(7, 0));
-        SpawnPiece(Piece.Type.Rook, Piece.Color.Black, Square.At(0, 7));
-        SpawnPiece(Piece.Type.Rook, Piece.Color.Black, Square.At(7, 7));
-        SpawnPiece(Piece.Type.Queen, Piece.Color.White, Square.At(3, 0));
-        SpawnPiece(Piece.Type.Queen, Piece.Color.Black, Square.At(3, 7));
-        SpawnPiece(Piece.Type.King, Piece.Color.White, Square.At(4, 0));
-        SpawnPiece(Piece.Type.King, Piece.Color.Black, Square.At(4, 7));
+        Tests();
 
-        turn = Piece.Color.White;
+        Reset();
     }
 
     void Update()
@@ -69,8 +49,7 @@ public class Board : MonoBehaviour
             else if (selectedSquare != null)
             {
                 if (IsLegalMove(selectedSquare, mouseSquare)) {
-                    justDoubleStepped = null;
-                    Move(selectedSquare, mouseSquare);
+                    MakeMove(selectedSquare, mouseSquare);
                     if (Checkmate(Piece.Opponent(turn)))
                     {
                         //TODO
@@ -83,7 +62,7 @@ public class Board : MonoBehaviour
         }
     }
 
-    private void Set(Square square, Piece piece)
+    private void Put(Square square, Piece piece)
     {
         board[square.rank * 8 + square.file] = piece;
     }
@@ -93,29 +72,32 @@ public class Board : MonoBehaviour
         return board[square.rank * 8 + square.file];
     }
 
-    public void Move(Square from, Square to)
+    public void MakeMove(Square from, Square to, Piece.Type promotion = Piece.Type.Pawn, bool modifyGameObjects = true)
     {
+        justDoubleStepped = null;
         Piece p = Get(from);
-        p.PreMove(from, to, this); // Tells the piece to do extra things if necessary (e.g. update variables, take a pawn via en passant, move a rook via castling)
-        if (Get(to) != null) Take(to);
-        Set(from, null);
-        Set(to, p);
-        p.transform.position = GetTileCenter(to.file, to.rank);
+        p.PreMove(from, to, this, promotion, modifyGameObjects); // Tells the piece to do extra things if necessary (e.g. update variables, take a pawn via en passant, move a rook via castling)
+        if (Get(to) != null) Take(to, modifyGameObjects) ;
+        Put(from, null);
+        Put(to, p);
+        if (modifyGameObjects) p.transform.position = GetTileCenter(to.file, to.rank);
     }
 
-    public void Take(Square square)
+    public void Take(Square square, bool modifyGameObjects = true)
     {
-        Destroy(Get(square).gameObject);
-        Set(square, null);
+        if (modifyGameObjects) Destroy(Get(square).gameObject);
+        Put(square, null);
     }
 
-    public void Promote(Square square)
+    public void Promote(Square square, Piece.Type promotion = Piece.Type.Pawn, bool modifyGameObjects = true)
     {
         Piece p = Get(square);
-        Destroy(p.gameObject);
-        Set(square, null);
-        SpawnPiece(Piece.Type.Queen, p.color, square);
-        //TODO: allow player to choose new piece from (queen, knight, bishop, rook)
+        if (promotion == Piece.Type.Pawn)
+        {
+            //TODO: query player p.color
+        }
+        if (modifyGameObjects) Destroy(p.gameObject);
+        Spawn(Piece.Type.Queen, p.color, square, modifyGameObjects);
     }
 
     // Q: Could I move my king to this square? A:
@@ -151,7 +133,7 @@ public class Board : MonoBehaviour
     // True iff the king's square will not be under attack as a result of this move.
     private bool IsSafeMove(Square from, Square to)
     {
-        Piece p = Get(from);
+        Piece.Color color = Get(from).color;
 
         // Copy the game state, perform the move, and revert.
         Piece[] boardCopy = new Piece[64];
@@ -159,11 +141,8 @@ public class Board : MonoBehaviour
         List<Piece> hasMovedCopy = new List<Piece>(hasMoved);
         Pawn justDoubleSteppedCopy = justDoubleStepped;
 
-        p.PreMove(from, to, this);
-        Set(from, null);
-        Set(to, p);
-
-        bool kingInCheck = KingInCheck(p.color);
+        MakeMove(from, to, Piece.Type.Knight, false); // If a promotion occurs, choose an arbitrary type to avoid querying players
+        bool kingInCheck = KingInCheck(color);
 
         board = boardCopy;
         hasMoved = hasMovedCopy;
@@ -175,24 +154,38 @@ public class Board : MonoBehaviour
     // True iff COLOR's king is in check
     private bool KingInCheck(Piece.Color color)
     {
+        Square kingSquare = null;
+        Piece p = null;
         foreach (Square s in Square.squares)
         {
-            Piece q = Get(s);
-            if (q != null && q.type == Piece.Type.King && q.color == color)
+            p = Get(s);
+            if (p != null && p.type == Piece.Type.King && p.color == color)
             {
-                return IsCheckedSquare(s, Piece.Opponent(q.color));
+                kingSquare = s;
+                break;
             }
         }
 
-        Debug.Assert(false);
+        Debug.Assert(p != null && p.type == Piece.Type.King && p.color == color);
 
-        return false;
+        return IsCheckedSquare(kingSquare, Piece.Opponent(p.color));
     }
 
     // True iff COLOR's king is in checkmate
     private bool Checkmate(Piece.Color color)
     {
         return !LegalMoves(color).Any();
+    }
+
+    private struct Move
+    {
+        public Square from, to;
+
+        public Move(Square _from, Square _to)
+        {
+            from = _from;
+            to = _to;
+        }
     }
 
     private IEnumerable<Move> LegalMoves(Piece.Color color)
@@ -209,11 +202,42 @@ public class Board : MonoBehaviour
         }
     }
 
-    private void SpawnPiece(Piece.Type type, Piece.Color color, Square square)
+    private void Spawn(Piece.Type type, Piece.Color color, Square square, bool create = true)
     {
-        Quaternion rotation = (color == Piece.Color.White) ? Quaternion.identity : Quaternion.Euler(Vector3.up * 180f);
-        GameObject gamePiece = Instantiate(piecePrefabs[(int)type + 6 * (int)color], GetTileCenter(square.file, square.rank), rotation) as GameObject;
-        Set(square, gamePiece.GetComponent<Piece>());
+        if (create)
+        {
+            Quaternion rotation = (color == Piece.Color.White) ? Quaternion.identity : Quaternion.Euler(Vector3.up * 180f);
+            GameObject gamePiece = Instantiate(piecePrefabs[(int)type + 6 * (int)color], GetTileCenter(square.file, square.rank), rotation) as GameObject;
+            Put(square, gamePiece.GetComponent<Piece>());
+        }
+        else
+        {
+            Piece p = null;
+            switch(type)
+            {
+                case Piece.Type.Pawn:
+                    p = new Pawn();
+                    break;
+                case Piece.Type.Knight:
+                    p = new Knight();
+                    break;
+                case Piece.Type.Bishop:
+                    p = new Bishop();
+                    break;
+                case Piece.Type.Rook:
+                    p = new Rook();
+                    break;
+                case Piece.Type.Queen:
+                    p = new Queen();
+                    break;
+                case Piece.Type.King:
+                    p = new King();
+                    break;
+            }
+
+            p.color = color;
+            Put(square, p);
+        }
     }
 
     private Square GetMouseSquare()
@@ -257,6 +281,143 @@ public class Board : MonoBehaviour
 
             Debug.DrawLine(RIGHT * mouseSquare.file + UP * (mouseSquare.rank + 1),
                            RIGHT * (mouseSquare.file + 1) + UP * mouseSquare.rank);
+        }
+    }
+
+    private void Setup()
+    {
+        for (int i = 0; i < 8; ++i)
+        {
+            Spawn(Piece.Type.Pawn, Piece.Color.White, Square.At(i, 1));
+            Spawn(Piece.Type.Pawn, Piece.Color.Black, Square.At(i, 6));
+        }
+        Spawn(Piece.Type.Knight, Piece.Color.White, Square.At(1, 0));
+        Spawn(Piece.Type.Knight, Piece.Color.White, Square.At(6, 0));
+        Spawn(Piece.Type.Knight, Piece.Color.Black, Square.At(1, 7));
+        Spawn(Piece.Type.Knight, Piece.Color.Black, Square.At(6, 7));
+        Spawn(Piece.Type.Bishop, Piece.Color.White, Square.At(2, 0));
+        Spawn(Piece.Type.Bishop, Piece.Color.White, Square.At(5, 0));
+        Spawn(Piece.Type.Bishop, Piece.Color.Black, Square.At(2, 7));
+        Spawn(Piece.Type.Bishop, Piece.Color.Black, Square.At(5, 7));
+        Spawn(Piece.Type.Rook, Piece.Color.White, Square.At(0, 0));
+        Spawn(Piece.Type.Rook, Piece.Color.White, Square.At(7, 0));
+        Spawn(Piece.Type.Rook, Piece.Color.Black, Square.At(0, 7));
+        Spawn(Piece.Type.Rook, Piece.Color.Black, Square.At(7, 7));
+        Spawn(Piece.Type.Queen, Piece.Color.White, Square.At(3, 0));
+        Spawn(Piece.Type.Queen, Piece.Color.Black, Square.At(3, 7));
+        Spawn(Piece.Type.King, Piece.Color.White, Square.At(4, 0));
+        Spawn(Piece.Type.King, Piece.Color.Black, Square.At(4, 7));
+
+        turn = Piece.Color.White;
+    }
+
+    private void Reset()
+    {
+        foreach (Piece p in board)
+        {
+            if (p != null) Destroy(p.gameObject);
+        }
+        board = new Piece[64];
+        hasMoved = new List<Piece>();
+        justDoubleStepped = null;
+
+        Setup();
+    }
+
+    private void Tests()
+    {
+        Setup();
+
+        Move[] kasparov_vs_topalov = { new Move(Square.At(4, 1), Square.At(4, 3)), new Move(Square.At(3, 6), Square.At(3, 5)),
+                                       new Move(Square.At(3, 1), Square.At(3, 3)), new Move(Square.At(6, 7), Square.At(5, 5)),
+                                       new Move(Square.At(1, 0), Square.At(2, 2)), new Move(Square.At(6, 6), Square.At(6, 5)),
+                                       new Move(Square.At(2, 0), Square.At(4, 2)), new Move(Square.At(5, 7), Square.At(6, 6)),
+                                       new Move(Square.At(3, 0), Square.At(3, 1)), new Move(Square.At(2, 6), Square.At(2, 5)),
+                                       new Move(Square.At(5, 1), Square.At(5, 2)), new Move(Square.At(1, 6), Square.At(1, 4)),
+                                       new Move(Square.At(6, 0), Square.At(4, 1)), new Move(Square.At(1, 7), Square.At(3, 6)),
+                                       new Move(Square.At(4, 2), Square.At(7, 5)), new Move(Square.At(6, 6), Square.At(7, 5)), // First blood
+                                       new Move(Square.At(3, 1), Square.At(7, 5)), new Move(Square.At(2, 7), Square.At(1, 6)),
+                                       new Move(Square.At(0, 1), Square.At(0, 2)), new Move(Square.At(4, 6), Square.At(4, 4)),
+                                       new Move(Square.At(4, 0), Square.At(2, 0)), new Move(Square.At(3, 7), Square.At(4, 6)), // White castle
+                                       new Move(Square.At(2, 0), Square.At(1, 0)), new Move(Square.At(0, 6), Square.At(0, 5)),
+                                       new Move(Square.At(4, 1), Square.At(2, 0)), new Move(Square.At(4, 7), Square.At(2, 7)), // Black castle
+                                       new Move(Square.At(2, 0), Square.At(1, 2)), new Move(Square.At(4, 4), Square.At(3, 3)),
+                                       new Move(Square.At(3, 0), Square.At(3, 3)), new Move(Square.At(2, 5), Square.At(2, 4)),
+                                       new Move(Square.At(3, 3), Square.At(3, 0)), new Move(Square.At(3, 6), Square.At(1, 5)),
+                                       new Move(Square.At(6, 1), Square.At(6, 2)), new Move(Square.At(2, 7), Square.At(1, 7)),
+                                       new Move(Square.At(1, 2), Square.At(0, 4)), new Move(Square.At(1, 6), Square.At(0, 7)),
+                                       new Move(Square.At(5, 0), Square.At(7, 2)), new Move(Square.At(3, 5), Square.At(3, 4)),
+                                       new Move(Square.At(7, 5), Square.At(5, 3)), new Move(Square.At(1, 7), Square.At(0, 6)),
+                                       new Move(Square.At(7, 0), Square.At(4, 0)), new Move(Square.At(3, 4), Square.At(3, 3)),
+                                       new Move(Square.At(2, 2), Square.At(3, 4)), new Move(Square.At(1, 5), Square.At(3, 4)),
+                                       new Move(Square.At(4, 3), Square.At(3, 4)), new Move(Square.At(4, 6), Square.At(3, 5)),
+                                       new Move(Square.At(3, 0), Square.At(3, 3)), new Move(Square.At(2, 4), Square.At(3, 3)),
+                                       new Move(Square.At(4, 0), Square.At(4, 6)), new Move(Square.At(0, 6), Square.At(1, 5)),
+                                       new Move(Square.At(5, 3), Square.At(3, 3)), new Move(Square.At(1, 5), Square.At(0, 4)),
+                                       new Move(Square.At(1, 1), Square.At(1, 3)), new Move(Square.At(0, 4), Square.At(0, 3)),
+                                       new Move(Square.At(3, 3), Square.At(2, 2)), new Move(Square.At(3, 5), Square.At(3, 4)),
+                                       new Move(Square.At(4, 6), Square.At(0, 6)), new Move(Square.At(0, 7), Square.At(1, 6)),
+                                       new Move(Square.At(0, 6), Square.At(1, 6)), new Move(Square.At(3, 4), Square.At(2, 3)),
+                                       new Move(Square.At(2, 2), Square.At(5, 5)), new Move(Square.At(0, 3), Square.At(0, 2)),
+                                       new Move(Square.At(5, 5), Square.At(0, 5)), new Move(Square.At(0, 2), Square.At(1, 3)),
+                                       new Move(Square.At(2, 1), Square.At(2, 2)), new Move(Square.At(1, 3), Square.At(2, 2)),
+                                       new Move(Square.At(0, 5), Square.At(0, 0)), new Move(Square.At(2, 2), Square.At(3, 1)),
+                                       new Move(Square.At(0, 0), Square.At(1, 1)), new Move(Square.At(3, 1), Square.At(3, 0)),
+                                       new Move(Square.At(7, 2), Square.At(5, 0)), new Move(Square.At(3, 7), Square.At(3, 1)),
+                                       new Move(Square.At(1, 6), Square.At(3, 6)), new Move(Square.At(3, 1), Square.At(3, 6)),
+                                       new Move(Square.At(5, 0), Square.At(2, 3)), new Move(Square.At(1, 4), Square.At(2, 3)), // Black queen
+                                       new Move(Square.At(1, 1), Square.At(7, 7)), new Move(Square.At(3, 6), Square.At(3, 2)),
+                                       new Move(Square.At(7, 7), Square.At(0, 7)), new Move(Square.At(2, 3), Square.At(2, 2)),
+                                       new Move(Square.At(0, 7), Square.At(0, 3)), new Move(Square.At(3, 0), Square.At(4, 0)),
+                                       new Move(Square.At(5, 2), Square.At(5, 3)), new Move(Square.At(5, 6), Square.At(5, 4)),
+                                       new Move(Square.At(1, 0), Square.At(2, 0)), new Move(Square.At(3, 2), Square.At(3, 1)),
+                                       new Move(Square.At(0, 3), Square.At(0, 6)) };
+
+        for (int i = 0; i < 87; ++i)
+        {
+            Move m = kasparov_vs_topalov[i];
+            Debug.Assert(Get(m.from) != null, i);
+            Debug.Assert(m.from != m.to, i);
+            Debug.Assert(IsLegalMove(m.from, m.to), i);
+            MakeMove(m.from, m.to);
+        }
+
+        Reset();
+
+        Move[] morphy_vs_allies = { new Move(Square.At(4, 1), Square.At(4, 3)), new Move(Square.At(4, 6), Square.At(4, 5)),
+                                    new Move(Square.At(3, 1), Square.At(3, 3)), new Move(Square.At(3, 6), Square.At(3, 4)),
+                                    new Move(Square.At(4, 3), Square.At(3, 4)), new Move(Square.At(4, 5), Square.At(3, 4)),
+                                    new Move(Square.At(6, 0), Square.At(5, 2)), new Move(Square.At(6, 7), Square.At(5, 5)),
+                                    new Move(Square.At(5, 0), Square.At(3, 2)), new Move(Square.At(5, 7), Square.At(3, 5)),
+                                    new Move(Square.At(4, 0), Square.At(6, 0)), new Move(Square.At(4, 7), Square.At(6, 7)), // Castles
+                                    new Move(Square.At(1, 0), Square.At(2, 2)), new Move(Square.At(2, 6), Square.At(2, 4)),
+                                    new Move(Square.At(3, 3), Square.At(2, 4)), new Move(Square.At(3, 5), Square.At(2, 4)),
+                                    new Move(Square.At(2, 0), Square.At(6, 4)), new Move(Square.At(2, 7), Square.At(4, 5)),
+                                    new Move(Square.At(3, 0), Square.At(3, 1)), new Move(Square.At(1, 7), Square.At(2, 5)),
+                                    new Move(Square.At(0, 0), Square.At(3, 0)), new Move(Square.At(2, 4), Square.At(4, 6)),
+                                    new Move(Square.At(5, 0), Square.At(4, 0)), new Move(Square.At(0, 6), Square.At(0, 5)),
+                                    new Move(Square.At(3, 1), Square.At(5, 3)), new Move(Square.At(5, 5), Square.At(7, 4)),
+                                    new Move(Square.At(5, 3), Square.At(7, 3)), new Move(Square.At(6, 6), Square.At(6, 5)),
+                                    new Move(Square.At(6, 1), Square.At(6, 3)), new Move(Square.At(7, 4), Square.At(5, 5)),
+                                    new Move(Square.At(7, 1), Square.At(7, 2)), new Move(Square.At(0, 7), Square.At(2, 7)),
+                                    new Move(Square.At(0, 1), Square.At(0, 2)), new Move(Square.At(5, 7), Square.At(4, 7)),
+                                    new Move(Square.At(2, 2), Square.At(4, 1)), new Move(Square.At(7, 6), Square.At(7, 4)),
+                                    new Move(Square.At(4, 1), Square.At(5, 3)), new Move(Square.At(5, 5), Square.At(7, 6)),
+                                    new Move(Square.At(5, 3), Square.At(4, 5)), new Move(Square.At(5, 6), Square.At(4, 5)),
+                                    new Move(Square.At(4, 0), Square.At(4, 5)), new Move(Square.At(4, 6), Square.At(6, 4)),
+                                    new Move(Square.At(4, 5), Square.At(6, 5)), new Move(Square.At(6, 7), Square.At(5, 7)),
+                                    new Move(Square.At(7, 3), Square.At(7, 4)), new Move(Square.At(2, 7), Square.At(2, 6)),
+                                    new Move(Square.At(5, 2), Square.At(6, 4)), new Move(Square.At(4, 7), Square.At(4, 6)),
+                                    new Move(Square.At(7, 4), Square.At(7, 5)), new Move(Square.At(5, 7), Square.At(4, 7)),
+                                    new Move(Square.At(6, 5), Square.At(6, 7)) };
+
+        for (int i = 0; i < 51; ++i)
+        {
+            Move m = morphy_vs_allies[i];
+            Debug.Assert(Get(m.from) != null, i);
+            Debug.Assert(m.from != m.to, i);
+            Debug.Assert(IsLegalMove(m.from, m.to), i);
+            MakeMove(m.from, m.to);
         }
     }
 }
