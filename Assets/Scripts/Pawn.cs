@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 
+using Square = Board.Square;
+
 public class Pawn : Piece
 {
     public override Type type { get { return Type.Pawn; } }

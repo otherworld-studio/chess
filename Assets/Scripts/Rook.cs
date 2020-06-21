@@ -1,5 +1,7 @@
 ﻿using System.Collections.Generic;
 
+using Square = Board.Square;
+
 public class Rook : Piece
 {
     public override Type type { get { return Type.Rook; } }

@@ -1,6 +1,8 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 
+using Square = Board.Square;
+
 public abstract class Piece : MonoBehaviour
 {
     // DO NOT make this readonly, we want it serialized

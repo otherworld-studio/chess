@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -50,13 +51,21 @@ public class Board : MonoBehaviour
             {
                 if (IsLegalMove(selectedSquare, mouseSquare)) {
                     MakeMove(selectedSquare, mouseSquare);
-                    if (Checkmate(Piece.Opponent(turn)))
+                    if (!LegalMoves(Piece.Opponent(turn)).Any())
                     {
-                        //TODO
-                        Debug.Log("CHECKMATE BITCHES");
+                        if (KingInCheck(Piece.Opponent(turn)))
+                        {
+                            //TODO
+                            Debug.Log("CHECKMATE BITCH");
+                        } else
+                        {
+                            Debug.Log("STALEMATE... bitch");
+                        }
                     }
+
                     turn = Piece.Opponent(turn);
                 }
+
                 selectedSquare = null;
             }
         }
@@ -130,7 +139,7 @@ public class Board : MonoBehaviour
         return Get(from).IsLegalMove(from, to, this) && IsSafeMove(from, to);
     }
 
-    // True iff the king's square will not be under attack as a result of this move.
+    // True iff the king's square will not be under attack as a result of this move. Assumes FROM -> TO is otherwise a legal move.
     private bool IsSafeMove(Square from, Square to)
     {
         Piece.Color color = Get(from).color;
@@ -169,12 +178,6 @@ public class Board : MonoBehaviour
         Debug.Assert(p != null && p.type == Piece.Type.King && p.color == color);
 
         return IsCheckedSquare(kingSquare, Piece.Opponent(p.color));
-    }
-
-    // True iff COLOR's king is in checkmate
-    private bool Checkmate(Piece.Color color)
-    {
-        return !LegalMoves(color).Any();
     }
 
     private struct Move
@@ -419,5 +422,116 @@ public class Board : MonoBehaviour
             Debug.Assert(IsLegalMove(m.from, m.to), i);
             MakeMove(m.from, m.to);
         }
+    }
+
+    //Don't make this a struct (we want singletons with nullability - better suited as a class)
+    public class Square
+    {
+        public readonly int file, rank;
+
+        // Calls StraightLine(dir) in the direction of TO, stopping at TO (without returning it)
+        public IEnumerable StraightLine(Square to)
+        {
+            int x = to.file - file, y = to.rank - rank;
+            Debug.Assert(x == 0 || y == 0 || Math.Abs(x) == Math.Abs(y));
+
+            int dir = 0;
+            switch (Math.Sign(x))
+            {
+                case 1:
+                    switch (Math.Sign(y))
+                    {
+                        case 1:
+                            dir = 1;
+                            break;
+                        case -1:
+                            dir = 7;
+                            break;
+                    }
+                    break;
+                case 0:
+                    switch (Math.Sign(y))
+                    {
+                        case 1:
+                            dir = 2;
+                            break;
+                        case -1:
+                            dir = 6;
+                            break;
+                    }
+                    break;
+                case -1:
+                    switch (Math.Sign(y))
+                    {
+                        case 1:
+                            dir = 3;
+                            break;
+                        case 0:
+                            dir = 4;
+                            break;
+                        case -1:
+                            dir = 5;
+                            break;
+                    }
+                    break;
+            }
+
+            foreach (Square s in StraightLine(dir))
+            {
+                if (s == to) yield break;
+                yield return s;
+            }
+        }
+
+        public IEnumerable StraightLine(int dir)
+        {
+            int dFile = DIRECTIONS[dir, 0], dRank = DIRECTIONS[dir, 1];
+            int x = file + dFile, y = rank + dRank;
+            while (Exists(x, y))
+            {
+                yield return At(x, y);
+                x += dFile;
+                y += dRank;
+            }
+        }
+
+        public static IEnumerable squares { get { return Squares(); } }
+
+        public static bool Exists(int file, int rank)
+        {
+            return file >= 0 && file < 8 && rank >= 0 && rank < 8;
+        }
+
+        //Rank and file must not be out of bounds
+        public static Square At(int file, int rank)
+        {
+            return SQUARES[rank * 8 + file];
+        }
+
+        private static IEnumerable Squares()
+        {
+            for (int i = 0; i < 64; ++i)
+            {
+                yield return SQUARES[i];
+            }
+        }
+
+        private Square(int index)
+        {
+            rank = index / 8;
+            file = index % 8;
+        }
+
+        static Square()
+        {
+            for (int i = 63; i >= 0; --i)
+            {
+                SQUARES[i] = new Square(i);
+            }
+        }
+
+        private static readonly Square[] SQUARES = new Square[64];
+
+        private static readonly int[,] DIRECTIONS = { { 1, 0 }, { 1, 1 }, { 0, 1 }, { -1, 1 }, { -1, 0 }, { -1, -1 }, { 0, -1 }, { 1, -1 } };
     }
 }

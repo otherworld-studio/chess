@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 
+using Square = Board.Square;
+
 public class Knight : Piece
 {
     public override Type type { get { return Type.Knight; } }
@@ -13,16 +15,16 @@ public class Knight : Piece
 
     public override bool IsCheckedSquare(Square target, Square current, Board board)
     {
-        int x = Math.Abs(target.file - current.file);
-        int y = Math.Abs(target.rank - current.rank);
+        int ax = Math.Abs(target.file - current.file);
+        int ay = Math.Abs(target.rank - current.rank);
 
-        if (x == 1)
+        if (ax == 1)
         {
-            return y == 2;
+            return ay == 2;
         }
-        else if (x == 2)
+        else if (ax == 2)
         {
-            return y == 1;
+            return ay == 1;
         }
 
         return false;
