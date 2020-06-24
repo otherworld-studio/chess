@@ -1,12 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
+using BoardStatus = Board.BoardStatus;
 using Square = Board.Square;
-using Move = Board.Move;
 using PieceType = Board.PieceType;
 using PieceColor = Board.PieceColor;
 using Piece = Board.PieceTag;
+
+using Move = Board.Move;
 
 public class GameManager : MonoBehaviour
 {
@@ -52,6 +53,20 @@ public class GameManager : MonoBehaviour
             {
                 if (board.MakeMove(selectedSquare, mouseSquare)) {
                     UpdateGameObjects();
+                    switch(board.status)
+                    {
+                        case BoardStatus.Promote:
+                            // TODO: player selects type
+                            board.Promote(PieceType.Pawn);
+                            UpdateGameObjects();
+                            break;
+                        case BoardStatus.Checkmate:
+                            // TODO
+                            break;
+                        case BoardStatus.Stalemate:
+                            // TODO
+                            break;
+                    }
                 }
 
                 selectedSquare = null;
