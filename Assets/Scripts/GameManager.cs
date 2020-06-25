@@ -14,15 +14,13 @@ public class GameManager : MonoBehaviour
     [SerializeField]
     private List<GameObject> piecePrefabs;
 
-    private Board board;
+    [SerializeField]
+    private GameObject promoteMenu;
 
+    private Board board;
     private GamePiece[] gamePieces;
 
     private Square selectedSquare;
-
-    private static readonly float TILE_SIZE = 1.5f;
-    private static readonly Vector3 RIGHT = Vector3.right * TILE_SIZE;
-    private static readonly Vector3 UP = Vector3.forward * TILE_SIZE;
 
     void Awake()
     {
@@ -39,8 +37,10 @@ public class GameManager : MonoBehaviour
 
     void Update()
     {
+        if (board.status != BoardStatus.Playing) return;
+
         Square mouseSquare = GetMouseSquare();
-        Draw(mouseSquare);//DEBUG
+        Draw(mouseSquare); // DEBUG
 
         if (Input.GetMouseButtonDown(0) && mouseSquare != null)
         {
@@ -56,15 +56,17 @@ public class GameManager : MonoBehaviour
                     switch(board.status)
                     {
                         case BoardStatus.Promote:
-                            // TODO: player selects type
-                            board.Promote(PieceType.Pawn);
-                            UpdateGameObjects();
+                            promoteMenu.SetActive(true);
                             break;
                         case BoardStatus.Checkmate:
-                            // TODO
+                            // TODO:
+                            //checkmateText.SetActive(true);
+                            //gameOverMenu.SetActive(true);
                             break;
                         case BoardStatus.Stalemate:
-                            // TODO
+                            // TODO:
+                            //stalemateText.SetActive(true);
+                            //gameOverMenu.SetActive(true);
                             break;
                     }
                 }
@@ -72,6 +74,13 @@ public class GameManager : MonoBehaviour
                 selectedSquare = null;
             }
         }
+    }
+
+    public void Promote(int type)
+    {
+        Debug.Assert(board.Promote((PieceType)type));
+        promoteMenu.SetActive(false);
+        UpdateGameObjects();
     }
 
     private void UpdateGameObjects()
@@ -248,4 +257,8 @@ public class GameManager : MonoBehaviour
 
         board.Reset();
     }
+
+    private static readonly float TILE_SIZE = 1.5f;
+    private static readonly Vector3 RIGHT = Vector3.right * TILE_SIZE;
+    private static readonly Vector3 UP = Vector3.forward * TILE_SIZE;
 }
