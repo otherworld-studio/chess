@@ -10,7 +10,10 @@ using Piece = Board.PieceTag;
 
 using Move = Board.Move;
 
-//TODO: rotatable camera
+// TODO:
+// camera zoom
+// initializing camera transform in Awake()
+// figure out best camera start position and clamping angles
 
 public class GameManager : MonoBehaviour
 {
@@ -26,6 +29,8 @@ public class GameManager : MonoBehaviour
     private GamePiece[] gamePieces;
 
     private Square selectedSquare;
+
+    public Vector3 boardCenter { get { return 4 * (RIGHT + UP); } }
 
     void Awake()
     {
@@ -270,7 +275,7 @@ public class GameManager : MonoBehaviour
         board.Reset();
     }
 
-    private static readonly float TILE_SIZE = 1.5f;
+    private const float TILE_SIZE = 1.5f;
     private static readonly Vector3 RIGHT = Vector3.right * TILE_SIZE;
     private static readonly Vector3 UP = Vector3.forward * TILE_SIZE;
 }
