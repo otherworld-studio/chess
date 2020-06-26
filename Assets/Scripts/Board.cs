@@ -63,8 +63,9 @@ public class Board
         } else
         {
             turn = Opponent(turn);
-            if (!legalMoves.Any())
+            if (!legalMoves.Any()) // Game over
             {
+                turn = Opponent(turn); // The turn does not change when the game ends
                 if (KingInCheck())
                 {
                     status = BoardStatus.Checkmate;
@@ -90,6 +91,7 @@ public class Board
         turn = Opponent(turn);
         if (!legalMoves.Any())
         {
+            turn = Opponent(turn);
             if (KingInCheck())
             {
                 status = BoardStatus.Checkmate;
@@ -238,6 +240,8 @@ public class Board
         Piece.Spawn(PieceType.Queen, PieceColor.Black, Square.At(3, 7), this);
         Piece.Spawn(PieceType.King, PieceColor.White, Square.At(4, 0), this);
         Piece.Spawn(PieceType.King, PieceColor.Black, Square.At(4, 7), this);
+
+        status = BoardStatus.Playing;
     }
 
     //Don't make this a struct (we want singletons with nullability - better suited as a class)

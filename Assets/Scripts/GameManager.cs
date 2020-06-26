@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 using BoardStatus = Board.BoardStatus;
 using Square = Board.Square;
@@ -9,13 +10,17 @@ using Piece = Board.PieceTag;
 
 using Move = Board.Move;
 
+//TODO: rotatable camera
+
 public class GameManager : MonoBehaviour
 {
     [SerializeField]
     private List<GameObject> piecePrefabs;
 
     [SerializeField]
-    private GameObject promoteMenu;
+    private GameObject promoteMenu, gameOverMenu;
+    [SerializeField]
+    private Text gameOverText, winnerText;
 
     private Board board;
     private GamePiece[] gamePieces;
@@ -59,14 +64,14 @@ public class GameManager : MonoBehaviour
                             promoteMenu.SetActive(true);
                             break;
                         case BoardStatus.Checkmate:
-                            // TODO:
-                            //checkmateText.SetActive(true);
-                            //gameOverMenu.SetActive(true);
+                            gameOverText.text = "Checkmate!";
+                            winnerText.text = ((board.turn == PieceColor.White) ? "White" : "Black") + " wins!";
+                            gameOverMenu.SetActive(true);
                             break;
                         case BoardStatus.Stalemate:
-                            // TODO:
-                            //stalemateText.SetActive(true);
-                            //gameOverMenu.SetActive(true);
+                            gameOverText.text = "Stalemate!";
+                            winnerText.text = "Draw";
+                            gameOverMenu.SetActive(true);
                             break;
                     }
                 }
@@ -74,6 +79,13 @@ public class GameManager : MonoBehaviour
                 selectedSquare = null;
             }
         }
+    }
+
+    public void Reset()
+    {
+        gameOverMenu.SetActive(false);
+        board.Reset();
+        UpdateGameObjects();
     }
 
     public void Promote(int type)
