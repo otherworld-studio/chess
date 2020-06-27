@@ -26,7 +26,30 @@ public class Board
 
     public Board()
     {
-        Reset();
+        board = new Piece[64];
+        hasMoved = new HashSet<Piece>();
+
+        for (int i = 0; i < 8; ++i)
+        {
+            Piece.Spawn(PieceType.Pawn, PieceColor.White, Square.At(i, 1), this);
+            Piece.Spawn(PieceType.Pawn, PieceColor.Black, Square.At(i, 6), this);
+        }
+        Piece.Spawn(PieceType.Knight, PieceColor.White, Square.At(1, 0), this);
+        Piece.Spawn(PieceType.Knight, PieceColor.White, Square.At(6, 0), this);
+        Piece.Spawn(PieceType.Knight, PieceColor.Black, Square.At(1, 7), this);
+        Piece.Spawn(PieceType.Knight, PieceColor.Black, Square.At(6, 7), this);
+        Piece.Spawn(PieceType.Bishop, PieceColor.White, Square.At(2, 0), this);
+        Piece.Spawn(PieceType.Bishop, PieceColor.White, Square.At(5, 0), this);
+        Piece.Spawn(PieceType.Bishop, PieceColor.Black, Square.At(2, 7), this);
+        Piece.Spawn(PieceType.Bishop, PieceColor.Black, Square.At(5, 7), this);
+        Piece.Spawn(PieceType.Rook, PieceColor.White, Square.At(0, 0), this);
+        Piece.Spawn(PieceType.Rook, PieceColor.White, Square.At(7, 0), this);
+        Piece.Spawn(PieceType.Rook, PieceColor.Black, Square.At(0, 7), this);
+        Piece.Spawn(PieceType.Rook, PieceColor.Black, Square.At(7, 7), this);
+        Piece.Spawn(PieceType.Queen, PieceColor.White, Square.At(3, 0), this);
+        Piece.Spawn(PieceType.Queen, PieceColor.Black, Square.At(3, 7), this);
+        Piece.Spawn(PieceType.King, PieceColor.White, Square.At(4, 0), this);
+        Piece.Spawn(PieceType.King, PieceColor.Black, Square.At(4, 7), this);
     }
 
     public PieceTag GetPiece(Square square)
@@ -46,16 +69,16 @@ public class Board
     }
 
     // Returns true iff the move is made successfully
-    public bool MakeMove(Square from, Square to, PieceType promotion = PieceType.Queen)
+    public bool MakeMove(Move move)
     {
-        if (!IsLegalMove(from, to, promotion)) return false;
+        if (!IsLegalMove(move)) return false;
 
         justDoubleStepped = null;
 
-        Piece p = Get(from);
-        p.PreMove(from, to, this, promotion); // Tells the piece to do extra things if necessary (e.g. update variables, take a pawn via en passant, move a rook via castling)
-        Put(from, null);
-        Put(to, p);
+        Piece p = Get(move.from);
+        p.PreMove(move, this); // Tells the piece to do extra things if necessary (e.g. update variables, take a pawn via en passant, move a rook via castling)
+        Put(move.from, null);
+        Put(move.to, p);
 
         if (needsPromotion != null)
         {
@@ -109,18 +132,18 @@ public class Board
         return true;
     }
 
-    public bool IsLegalMove(Square from, Square to, PieceType promotion = PieceType.Pawn)
+    public bool IsLegalMove(Move move)
     {
-        if (status != BoardStatus.Playing || from == to) return false;
+        if (status != BoardStatus.Playing || move.from == move.to) return false;
 
-        Piece p = Get(from);
+        Piece p = Get(move.from);
         if (p.color != turn) return false;
 
-        return p.IsLegalMove(from, to, this, promotion) && IsSafeMove(from, to);
+        return p.IsLegalMove(move, this) && IsSafeMove(move);
     }
 
     // True iff TURN's king's square will not be under attack as a result of this move. Assumes FROM -> TO is otherwise a legal move.
-    private bool IsSafeMove(Square from, Square to)
+    private bool IsSafeMove(Move move)
     {
         // Copy the game state, perform the move, and revert.
         Piece[] boardCopy = new Piece[64];
@@ -128,10 +151,10 @@ public class Board
         HashSet<Piece> hasMovedCopy = new HashSet<Piece>(hasMoved);
         Pawn justDoubleSteppedCopy = justDoubleStepped;
         
-        Piece p = Get(from);
-        p.PreMove(from, to, this); // Tells the piece to do extra things if necessary (e.g. update variables, take a pawn via en passant, move a rook via castling)
-        Put(from, null);
-        Put(to, p);
+        Piece p = Get(move.from);
+        p.PreMove(move, this); // Tells the piece to do extra things if necessary (e.g. update variables, take a pawn via en passant, move a rook via castling)
+        Put(move.from, null);
+        Put(move.to, p);
         bool kingInCheck = KingInCheck();
 
         board = boardCopy;
@@ -186,12 +209,14 @@ public class Board
 
     public struct Move
     {
-        public Square from, to;
+        public readonly Square from, to;
+        public readonly PieceType promotion;
 
-        public Move(Square _from, Square _to)
+        public Move(Square _from, Square _to, PieceType _promotion = PieceType.Pawn)
         {
             from = _from;
             to = _to;
+            promotion = _promotion;
         }
     }
 
@@ -204,44 +229,12 @@ public class Board
                 Piece p = Get(from);
                 if (p == null || p.color != turn) continue;
 
-                foreach (Square to in p.LegalMoves(from, this))
+                foreach (Move m in p.LegalMoves(from, this))
                 {
-                    if (IsSafeMove(from, to)) yield return new Move(from, to);
+                    if (IsSafeMove(m)) yield return m;
                 }
             }
         }
-    }
-
-    public void Reset()
-    {
-        board = new Piece[64];
-        hasMoved = new HashSet<Piece>();
-        justDoubleStepped = null;
-        turn = PieceColor.White;
-
-        for (int i = 0; i < 8; ++i)
-        {
-            Piece.Spawn(PieceType.Pawn, PieceColor.White, Square.At(i, 1), this);
-            Piece.Spawn(PieceType.Pawn, PieceColor.Black, Square.At(i, 6), this);
-        }
-        Piece.Spawn(PieceType.Knight, PieceColor.White, Square.At(1, 0), this);
-        Piece.Spawn(PieceType.Knight, PieceColor.White, Square.At(6, 0), this);
-        Piece.Spawn(PieceType.Knight, PieceColor.Black, Square.At(1, 7), this);
-        Piece.Spawn(PieceType.Knight, PieceColor.Black, Square.At(6, 7), this);
-        Piece.Spawn(PieceType.Bishop, PieceColor.White, Square.At(2, 0), this);
-        Piece.Spawn(PieceType.Bishop, PieceColor.White, Square.At(5, 0), this);
-        Piece.Spawn(PieceType.Bishop, PieceColor.Black, Square.At(2, 7), this);
-        Piece.Spawn(PieceType.Bishop, PieceColor.Black, Square.At(5, 7), this);
-        Piece.Spawn(PieceType.Rook, PieceColor.White, Square.At(0, 0), this);
-        Piece.Spawn(PieceType.Rook, PieceColor.White, Square.At(7, 0), this);
-        Piece.Spawn(PieceType.Rook, PieceColor.Black, Square.At(0, 7), this);
-        Piece.Spawn(PieceType.Rook, PieceColor.Black, Square.At(7, 7), this);
-        Piece.Spawn(PieceType.Queen, PieceColor.White, Square.At(3, 0), this);
-        Piece.Spawn(PieceType.Queen, PieceColor.Black, Square.At(3, 7), this);
-        Piece.Spawn(PieceType.King, PieceColor.White, Square.At(4, 0), this);
-        Piece.Spawn(PieceType.King, PieceColor.Black, Square.At(4, 7), this);
-
-        status = BoardStatus.Playing;
     }
 
     //Don't make this a struct (we want singletons with nullability - better suited as a class)
@@ -403,14 +396,14 @@ public class Board
         }
 
         // True iff this piece can make this move on this BOARD. Assume that FROM != TO and that it is this color's turn. Doesn't care if the king is in check or is put into a checked square as a result of this move.
-        public abstract bool IsLegalMove(Square from, Square to, Board board, PieceType promotion = PieceType.Pawn);
+        public abstract bool IsLegalMove(Move move, Board board);
         // True iff a king located at TARGET would be in check due to this piece at its CURRENT position, on the current BOARD. Assume TARGET != CURRENT.
         public abstract bool IsCheckedSquare(Square target, Square current, Board board);
 
-        public abstract IEnumerable<Square> LegalMoves(Square from, Board board);
+        public abstract IEnumerable<Move> LegalMoves(Square from, Board board);
 
         // Assumes the move FROM -> TO is legal, and that promotion != PieceType.King
-        public virtual void PreMove(Square from, Square to, Board board, PieceType promotion = PieceType.Pawn) { return; }
+        public virtual void PreMove(Move move, Board board) { return; }
 
         public static void Spawn(PieceType type, PieceColor color, Square square, Board board)
         {
@@ -444,22 +437,22 @@ public class Board
     {
         public Pawn(PieceColor _color) : base(PieceType.Pawn, _color) { }
 
-        public override bool IsLegalMove(Square from, Square to, Board board, PieceType promotion = PieceType.Pawn)
+        public override bool IsLegalMove(Move move, Board board)
         {
-            if (promotion == PieceType.King) return false;
+            if (move.promotion == PieceType.King) return false;
 
-            int steps = (color == PieceColor.White) ? to.rank - from.rank : from.rank - to.rank;
-            if (from.file == to.file)
+            int steps = (color == PieceColor.White) ? move.to.rank - move.from.rank : move.from.rank - move.to.rank;
+            if (move.from.file == move.to.file)
             {
-                return board.Get(to) == null && (steps == 1 || steps == 2 && from.rank == ((color == PieceColor.White) ? 1 : 6) && board.IsUnblockedPath(from, to));
+                return board.Get(move.to) == null && (steps == 1 || steps == 2 && move.from.rank == ((color == PieceColor.White) ? 1 : 6) && board.IsUnblockedPath(move.from, move.to));
             }
-            if (steps == 1 && Math.Abs(to.file - from.file) == 1)
+            if (steps == 1 && Math.Abs(move.to.file - move.from.file) == 1)
             {
-                Piece p = board.Get(to);
+                Piece p = board.Get(move.to);
                 if (p != null) return p.color == opponent;
 
                 // En passant
-                p = board.Get(Square.At(to.file, from.rank));
+                p = board.Get(Square.At(move.to.file, move.from.rank));
                 return p != null && p == board.justDoubleStepped;
             }
 
@@ -472,22 +465,22 @@ public class Board
             return steps == 1 && Math.Abs(target.file - current.file) == 1;
         }
 
-        public override IEnumerable<Square> LegalMoves(Square from, Board board)
+        public override IEnumerable<Move> LegalMoves(Square from, Board board)
         {
             int y = (color == PieceColor.White) ? from.rank + 1 : from.rank - 1;
             if (!Square.Exists(from.file, y)) yield break;
 
-            Square s = Square.At(from.file, y);
-            if (board.Get(s) == null)
+            Square to = Square.At(from.file, y);
+            if (board.Get(to) == null)
             {
-                yield return s;
+                foreach (Move m in LegalMovesHelper(from, to)) yield return m;
 
                 if (from.rank == ((color == PieceColor.White) ? 1 : 6))
                 {
-                    s = Square.At(from.file, (color == PieceColor.White) ? 3 : 4);
-                    if (board.Get(s) == null)
+                    to = Square.At(from.file, (color == PieceColor.White) ? 3 : 4);
+                    if (board.Get(to) == null)
                     {
-                        yield return s;
+                        foreach (Move m in LegalMovesHelper(from, to)) yield return m;
                     }
                 }
             }
@@ -497,39 +490,54 @@ public class Board
             {
                 if (Square.Exists(x, y))
                 {
-                    s = Square.At(x, y);
-                    Piece p = board.Get(s);
+                    to = Square.At(x, y);
+                    Piece p = board.Get(to);
                     if (p != null)
                     {
-                        if (p.color == opponent) yield return s;
+                        if (p.color == opponent) foreach (Move m in LegalMovesHelper(from, to)) yield return m;
                     }
                     else
                     {
                         p = board.Get(Square.At(x, from.rank));
-                        if (p != null && p == board.justDoubleStepped) yield return s;
+                        if (p != null && p == board.justDoubleStepped) foreach (Move m in LegalMovesHelper(from, to)) yield return m;
                     }
                 }
             }
         }
-
-        public override void PreMove(Square from, Square to, Board board, PieceType promotion = PieceType.Pawn)
+        
+        // takes promotion possibilities into account
+        private IEnumerable<Move> LegalMovesHelper(Square from, Square to)
         {
-            if (Math.Abs(to.rank - from.rank) == 2)
+            if (to.rank == 0 || to.rank == 7)
+            {
+                yield return new Move(from, to, PieceType.Knight);
+                yield return new Move(from, to, PieceType.Bishop);
+                yield return new Move(from, to, PieceType.Rook);
+                yield return new Move(from, to, PieceType.Queen);
+            } else
+            {
+                yield return new Move(from, to);
+            }
+        }
+
+        public override void PreMove(Move move, Board board)
+        {
+            if (Math.Abs(move.to.rank - move.from.rank) == 2)
             {
                 board.justDoubleStepped = this;
             }
-            else if (from.file != to.file && board.Get(to) == null)
+            else if (move.from.file != move.to.file && board.Get(move.to) == null)
             {
-                board.Put(Square.At(to.file, from.rank), null); // En passant
+                board.Put(Square.At(move.to.file, move.from.rank), null); // En passant
             }
-            else if (to.rank == 7 || to.rank == 0)
+            else if (move.to.rank == 7 || move.to.rank == 0)
             {
-                if (promotion == PieceType.Pawn)
+                if (move.promotion == PieceType.Pawn)
                 {
-                    board.needsPromotion = to; // Delay piece selection
+                    board.needsPromotion = move.to; // Delay piece selection
                 } else
                 {
-                    Spawn(promotion, color, from, board);
+                    Spawn(move.promotion, color, move.from, board);
                 }
                 
             }
@@ -540,10 +548,10 @@ public class Board
     {
         public Knight(PieceColor _color) : base(PieceType.Knight, _color) { }
 
-        public override bool IsLegalMove(Square from, Square to, Board board, PieceType promotion = PieceType.Pawn)
+        public override bool IsLegalMove(Move move, Board board)
         {
-            Piece p = board.Get(to);
-            return (p == null || p.color == opponent) && IsCheckedSquare(to, from, board);
+            Piece p = board.Get(move.to);
+            return (p == null || p.color == opponent) && IsCheckedSquare(move.to, move.from, board);
         }
 
         public override bool IsCheckedSquare(Square target, Square current, Board board)
@@ -563,7 +571,7 @@ public class Board
             return false;
         }
 
-        public override IEnumerable<Square> LegalMoves(Square from, Board board)
+        public override IEnumerable<Move> LegalMoves(Square from, Board board)
         {
             int[,] squares = { { from.file + 2, from.rank + 1 }, { from.file + 1, from.rank + 2 },
                            { from.file - 1, from.rank + 2 }, { from.file - 2, from.rank + 1 },
@@ -577,7 +585,7 @@ public class Board
 
                 Square to = Square.At(x, y);
                 Piece p = board.Get(to);
-                if (p == null || p.color == opponent) yield return to;
+                if (p == null || p.color == opponent) yield return new Move(from, to);
             }
         }
     }
@@ -586,10 +594,10 @@ public class Board
     {
         public Bishop(PieceColor _color) : base(PieceType.Bishop, _color) { }
 
-        public override bool IsLegalMove(Square from, Square to, Board board, PieceType promotion = PieceType.Pawn)
+        public override bool IsLegalMove(Move move, Board board)
         {
-            Piece p = board.Get(to);
-            return (p == null || p.color == opponent) && IsCheckedSquare(to, from, board);
+            Piece p = board.Get(move.to);
+            return (p == null || p.color == opponent) && IsCheckedSquare(move.to, move.from, board);
         }
 
         public override bool IsCheckedSquare(Square target, Square current, Board board)
@@ -597,7 +605,7 @@ public class Board
             return Math.Abs(target.file - current.file) == Math.Abs(target.rank - current.rank) && board.IsUnblockedPath(current, target);
         }
 
-        public override IEnumerable<Square> LegalMoves(Square from, Board board)
+        public override IEnumerable<Move> LegalMoves(Square from, Board board)
         {
             for (int dir = 1; dir < 8; dir += 2)
             {
@@ -606,11 +614,11 @@ public class Board
                     Piece p = board.Get(to);
                     if (p != null)
                     {
-                        if (p.color == opponent) yield return to;
+                        if (p.color == opponent) yield return new Move(from, to);
                         break;
                     }
 
-                    yield return to;
+                    yield return new Move(from, to);
                 }
             }
         }
@@ -620,10 +628,10 @@ public class Board
     {
         public Rook(PieceColor _color) : base(PieceType.Rook, _color) { }
 
-        public override bool IsLegalMove(Square from, Square to, Board board, PieceType promotion = PieceType.Pawn)
+        public override bool IsLegalMove(Move move, Board board)
         {
-            Piece p = board.Get(to);
-            return (p == null || p.color == opponent) && IsCheckedSquare(to, from, board);
+            Piece p = board.Get(move.to);
+            return (p == null || p.color == opponent) && IsCheckedSquare(move.to, move.from, board);
         }
 
         public override bool IsCheckedSquare(Square target, Square current, Board board)
@@ -631,7 +639,7 @@ public class Board
             return (current.file == target.file || current.rank == target.rank) && board.IsUnblockedPath(current, target);
         }
 
-        public override IEnumerable<Square> LegalMoves(Square from, Board board)
+        public override IEnumerable<Move> LegalMoves(Square from, Board board)
         {
             for (int dir = 0; dir < 8; dir += 2)
             {
@@ -640,16 +648,16 @@ public class Board
                     Piece p = board.Get(to);
                     if (p != null)
                     {
-                        if (p.color == opponent) yield return to;
+                        if (p.color == opponent) yield return new Move(from, to);
                         break;
                     }
 
-                    yield return to;
+                    yield return new Move(from, to);
                 }
             }
         }
 
-        public override void PreMove(Square from, Square to, Board board, PieceType promotion = PieceType.Pawn)
+        public override void PreMove(Move move, Board board)
         {
             board.hasMoved.Add(this);
         }
@@ -659,10 +667,10 @@ public class Board
     {
         public Queen(PieceColor _color) : base(PieceType.Queen, _color) { }
 
-        public override bool IsLegalMove(Square from, Square to, Board board, PieceType promotion = PieceType.Pawn)
+        public override bool IsLegalMove(Move move, Board board)
         {
-            Piece p = board.Get(to);
-            return (p == null || p.color == opponent) && IsCheckedSquare(to, from, board);
+            Piece p = board.Get(move.to);
+            return (p == null || p.color == opponent) && IsCheckedSquare(move.to, move.from, board);
         }
 
         public override bool IsCheckedSquare(Square target, Square current, Board board)
@@ -671,7 +679,7 @@ public class Board
             return (x == 0 || y == 0 || Math.Abs(x) == Math.Abs(y)) && board.IsUnblockedPath(current, target);
         }
 
-        public override IEnumerable<Square> LegalMoves(Square from, Board board)
+        public override IEnumerable<Move> LegalMoves(Square from, Board board)
         {
             for (int dir = 0; dir < 8; ++dir)
             {
@@ -680,11 +688,11 @@ public class Board
                     Piece p = board.Get(to);
                     if (p != null)
                     {
-                        if (p.color == opponent) yield return to;
+                        if (p.color == opponent) yield return new Move(from, to);
                         break;
                     }
 
-                    yield return to;
+                    yield return new Move(from, to);
                 }
             }
         }
@@ -695,26 +703,26 @@ public class Board
         public King(PieceColor _color) : base(PieceType.King, _color) { }
 
         // Assume that TO is a safe square - that is verified in board.IsLegalMove. Do not assume that it is empty.
-        public override bool IsLegalMove(Square from, Square to, Board board, PieceType promotion = PieceType.Pawn)
+        public override bool IsLegalMove(Move move, Board board)
         {
-            int x = to.file - from.file, y = to.rank - from.rank;
+            int x = move.to.file - move.from.file, y = move.to.rank - move.from.rank;
             if (Math.Abs(x) > 1) // Castling
             {
                 if (y != 0 || board.hasMoved.Contains(this)) return false;
 
-                Square rookSquare = (x == 2) ? Square.At(7, from.rank) : (x == -2) ? Square.At(0, from.rank) : null;
+                Square rookSquare = (x == 2) ? Square.At(7, move.from.rank) : (x == -2) ? Square.At(0, move.from.rank) : null;
                 if (rookSquare == null) return false; // This is not the correct distance for a castle
 
                 Piece r = board.Get(rookSquare);
-                if (r.type != PieceType.Rook || board.hasMoved.Contains(r) || !board.IsUnblockedPath(from, rookSquare) || board.IsCheckedSquare(from, opponent)) return false;
+                if (r.type != PieceType.Rook || board.hasMoved.Contains(r) || !board.IsUnblockedPath(move.from, rookSquare) || board.IsCheckedSquare(move.from, opponent)) return false;
 
-                Square newRookSquare = (x == 2) ? Square.At(5, from.rank) : Square.At(3, from.rank);
+                Square newRookSquare = (x == 2) ? Square.At(5, move.from.rank) : Square.At(3, move.from.rank);
                 return !board.IsCheckedSquare(newRookSquare, opponent);
             }
 
             if (Math.Abs(y) > 1) return false;
 
-            Piece p = board.Get(to);
+            Piece p = board.Get(move.to);
             return p == null || p.color == opponent;
         }
 
@@ -723,7 +731,7 @@ public class Board
             return Math.Abs(target.file - current.file) <= 1 && Math.Abs(target.rank - current.rank) <= 1;
         }
 
-        public override IEnumerable<Square> LegalMoves(Square from, Board board)
+        public override IEnumerable<Move> LegalMoves(Square from, Board board)
         {
             int[,] squares = { { from.file + 1, from.rank }, { from.file + 1, from.rank + 1 },
                            { from.file, from.rank + 1 }, { from.file - 1, from.rank + 1 },
@@ -737,7 +745,7 @@ public class Board
 
                 Square to = Square.At(x, y);
                 Piece p = board.Get(to);
-                if (p == null || p.color == opponent) yield return to;
+                if (p == null || p.color == opponent) yield return new Move(from, to);
             }
 
             // Castling
@@ -751,29 +759,29 @@ public class Board
                 Piece p = board.Get(rookSquares[i]);
                 if (p.type == PieceType.Rook && !board.hasMoved.Contains(p) && board.IsUnblockedPath(from, rookSquares[i]) && !board.IsCheckedSquare(from, opponent) && !board.IsCheckedSquare(newRookSquares[i], opponent))
                 {
-                    yield return newKingSquares[i];
+                    yield return new Move(from, newKingSquares[i]);
                 }
             }
         }
 
-        public override void PreMove(Square from, Square to, Board board, PieceType promotion = PieceType.Pawn)
+        public override void PreMove(Move move, Board board)
         {
             board.hasMoved.Add(this);
 
-            int x = to.file - from.file;
+            int x = move.to.file - move.from.file;
             if (Math.Abs(x) > 1) // Castling
             {
                 Square rookSquare, newRookSquare;
                 if (x == 2)
                 {
-                    rookSquare = Square.At(7, from.rank);
-                    newRookSquare = Square.At(5, from.rank);
+                    rookSquare = Square.At(7, move.from.rank);
+                    newRookSquare = Square.At(5, move.from.rank);
 
                 }
                 else
                 {
-                    rookSquare = Square.At(0, from.rank);
-                    newRookSquare = Square.At(3, from.rank);
+                    rookSquare = Square.At(0, move.from.rank);
+                    newRookSquare = Square.At(3, move.from.rank);
                 }
                 board.Put(newRookSquare, board.Get(rookSquare));
                 board.Put(rookSquare, null);

@@ -10,7 +10,13 @@ using Piece = Board.PieceTag;
 
 using Move = Board.Move;
 
-// TODO: UI menus
+// TODO:
+// UI menus, pretty color-changing buttons. Make sure entire game board is visible when promote menu is active
+// show pieces that have been taken on the side
+// end game early button
+// improve piece highlighting
+// add square highlighting
+// online multiplayer
 
 public class GameManager : MonoBehaviour
 {
@@ -20,16 +26,32 @@ public class GameManager : MonoBehaviour
     [SerializeField]
     private GameObject promoteMenu, gameOverMenu;
     [SerializeField]
-    private Text gameOverText, winnerText;
+    private Text turnText, gameOverText, winnerText;
+
+    private Board board;
+    private GamePiece[] gamePieces;
+
+    private Square _selectedSquare;
+    private GamePiece _selectedPiece;
+    private Square selectedSquare {
+        get { return _selectedSquare; }
+        set {
+            if (_selectedPiece != null) _selectedPiece.Highlight(false);
+            _selectedSquare = value;
+            if (_selectedSquare == null)
+            {
+                _selectedPiece = null;
+            } else
+            {
+                _selectedPiece = Get(_selectedSquare);
+                if (_selectedPiece != null) _selectedPiece.Highlight(true);
+            }
+        }
+    }
 
     public const float tileSize = 1.5f;
     public static readonly Vector3 tileRight = Vector3.right * tileSize, tileUp = Vector3.up * tileSize, tileForward = Vector3.forward * tileSize;
     public static readonly Vector3 boardCenter = 4 * (tileRight + tileForward);
-
-    private static Board board;
-    private static GamePiece[] gamePieces;
-
-    private static Square selectedSquare;
 
     private static GameManager singletonInstance = null;
 
@@ -46,7 +68,7 @@ public class GameManager : MonoBehaviour
     {
         Tests();
 
-        UpdateGameObjects();
+        UpdateScene();
     }
 
     void Update()
@@ -58,65 +80,84 @@ public class GameManager : MonoBehaviour
 
         if (Input.GetMouseButtonDown(0) && mouseSquare != null)
         {
-            Piece p = board.GetPiece(mouseSquare);
-            if (p != null && p.color == board.turn)
+            if (mouseSquare == selectedSquare) // player clicked on the same piece/square twice
             {
-                selectedSquare = mouseSquare;
-            }
-            else if (selectedSquare != null)
-            {
-                if (board.MakeMove(selectedSquare, mouseSquare)) {
-                    UpdateGameObjects();
-                    switch(board.status)
-                    {
-                        case BoardStatus.Promote:
-                            promoteMenu.SetActive(true);
-                            break;
-                        case BoardStatus.Checkmate:
-                            gameOverText.text = "Checkmate!";
-                            winnerText.text = ((board.turn == PieceColor.White) ? "White" : "Black") + " wins!";
-                            gameOverMenu.SetActive(true);
-                            break;
-                        case BoardStatus.Stalemate:
-                            gameOverText.text = "Stalemate!";
-                            winnerText.text = "Draw";
-                            gameOverMenu.SetActive(true);
-                            break;
-                    }
-                }
-
                 selectedSquare = null;
+            } else
+            {
+                Piece p = board.GetPiece(mouseSquare);
+                if (p != null && p.color == board.turn) // player clicked on one of their own pieces
+                {
+                    selectedSquare = mouseSquare;
+                }
+                else if (selectedSquare != null) // the player has attempted to make a move
+                {
+                    if (board.MakeMove(new Move(selectedSquare, mouseSquare)))
+                    {
+                        UpdateScene();
+                        switch (board.status)
+                        {
+                            case BoardStatus.Promote:
+                                promoteMenu.SetActive(true);
+                                break;
+                            case BoardStatus.Checkmate:
+                                gameOverText.text = "Checkmate!";
+                                winnerText.text = ((board.turn == PieceColor.White) ? "White" : "Black") + " wins!";
+                                gameOverMenu.SetActive(true);
+                                break;
+                            case BoardStatus.Stalemate:
+                                gameOverText.text = "Stalemate!";
+                                winnerText.text = "Draw";
+                                gameOverMenu.SetActive(true);
+                                break;
+                        }
+                    }
+
+                    selectedSquare = null;
+                }
             }
         }
     }
 
+    private GamePiece Get(Square square)
+    {
+        return gamePieces[8 * square.rank + square.file];
+    }
+
+    private void Set(Square square, GamePiece piece)
+    {
+        gamePieces[8 * square.rank + square.file] = piece;
+    }
+
     public void Reset()
     {
+        board = new Board();
+        UpdateScene();
         gameOverMenu.SetActive(false);
-        board.Reset();
-        UpdateGameObjects();
     }
 
     public void Promote(int type)
     {
         Debug.Assert(board.Promote((PieceType)type));
+        UpdateScene();
         promoteMenu.SetActive(false);
-        UpdateGameObjects();
     }
 
-    private void UpdateGameObjects()
+    private void UpdateScene()
     {
+        turnText.text = ((board.turn == PieceColor.White) ? "White" : "Black") + "'s move";
+
         foreach (Square s in Square.squares)
         {
             Piece p = board.GetPiece(s);
-            GamePiece g = gamePieces[8 * s.rank + s.file];
+            GamePiece g = Get(s);
             if (p == null)
             {
                 if (g != null)
                 {
                     // TODO: add new location field to PieceTag? Then we could just update the position
                     Destroy(g.gameObject);
-                    gamePieces[8 * s.rank + s.file] = null;
+                    Set(s, null);
                 }
             } else
             {
@@ -139,7 +180,7 @@ public class GameManager : MonoBehaviour
         GamePiece p = Instantiate(piecePrefabs[(int)piece.type + 6 * (int)piece.color], GetSquareCenter(square), rotation).GetComponent<GamePiece>();
         Debug.Assert(p != null, piece.type);
         p.piece = piece;
-        gamePieces[8 * square.rank + square.file] = p;
+        Set(square, p);
     }
 
     private Square GetMouseSquare()
@@ -237,10 +278,10 @@ public class GameManager : MonoBehaviour
         {
             Move m = kasparov_vs_topalov[i];
             Debug.Assert(board.GetPiece(m.from) != null, i);
-            Debug.Assert(board.MakeMove(m.from, m.to), i);
+            Debug.Assert(board.MakeMove(m), i);
         }
 
-        board.Reset();
+        board = new Board();
 
         Move[] morphy_vs_allies = { new Move(Square.At(4, 1), Square.At(4, 3)), new Move(Square.At(4, 6), Square.At(4, 5)),
                                     new Move(Square.At(3, 1), Square.At(3, 3)), new Move(Square.At(3, 6), Square.At(3, 4)),
@@ -273,9 +314,9 @@ public class GameManager : MonoBehaviour
         {
             Move m = morphy_vs_allies[i];
             Debug.Assert(board.GetPiece(m.from) != null, i);
-            Debug.Assert(board.MakeMove(m.from, m.to), i);
+            Debug.Assert(board.MakeMove(m), i);
         }
 
-        board.Reset();
+        board = new Board();
     }
 }

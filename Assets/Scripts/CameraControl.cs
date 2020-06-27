@@ -14,7 +14,7 @@ public class CameraControl : MonoBehaviour
 		Debug.Assert(min > 1f);
 		max = 180f - min;
 		transform.position = GameManager.boardCenter - x * GameManager.tileForward + y * GameManager.tileUp;
-		transform.localRotation = Quaternion.Euler(pitch, 0f, 0f);
+		transform.localRotation = Quaternion.Euler(Vector3.right * pitch);
 	}
 
 	void Update()
