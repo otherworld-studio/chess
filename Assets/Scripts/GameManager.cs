@@ -10,10 +10,7 @@ using Piece = Board.PieceTag;
 
 using Move = Board.Move;
 
-// TODO:
-// camera zoom
-// initializing camera transform in Awake()
-// figure out best camera start position and clamping angles
+// TODO: UI menus
 
 public class GameManager : MonoBehaviour
 {
@@ -25,15 +22,22 @@ public class GameManager : MonoBehaviour
     [SerializeField]
     private Text gameOverText, winnerText;
 
-    private Board board;
-    private GamePiece[] gamePieces;
+    public const float tileSize = 1.5f;
+    public static readonly Vector3 tileRight = Vector3.right * tileSize, tileUp = Vector3.up * tileSize, tileForward = Vector3.forward * tileSize;
+    public static readonly Vector3 boardCenter = 4 * (tileRight + tileForward);
 
-    private Square selectedSquare;
+    private static Board board;
+    private static GamePiece[] gamePieces;
 
-    public Vector3 boardCenter { get { return 4 * (RIGHT + UP); } }
+    private static Square selectedSquare;
+
+    private static GameManager singletonInstance = null;
 
     void Awake()
     {
+        Debug.Assert(singletonInstance == null);
+        singletonInstance = this;
+
         board = new Board();
         gamePieces = new GamePiece[64];
     }
@@ -145,7 +149,7 @@ public class GameManager : MonoBehaviour
         RaycastHit hit;
         if (Physics.Raycast(Camera.main.ScreenPointToRay(Input.mousePosition), out hit, 25.0f, LayerMask.GetMask("Board")))
         {
-            int x = (int)(hit.point.x / TILE_SIZE), y = (int)(hit.point.z / TILE_SIZE);
+            int x = (int)(hit.point.x / tileSize), y = (int)(hit.point.z / tileSize);
             return (Square.Exists(x, y)) ? Square.At(x, y) : null;
         }
 
@@ -154,31 +158,31 @@ public class GameManager : MonoBehaviour
 
     private Vector3 GetSquareCenter(Square square)
     {
-        return RIGHT * (square.file + 0.5f) + UP * (square.rank + 0.5f);
+        return tileRight * (square.file + 0.5f) + tileForward * (square.rank + 0.5f);
     }
 
     private void Draw(Square mouseSquare)
     {
-        Vector3 widthLine = RIGHT * 8;
-        Vector3 depthLine = UP * 8;
+        Vector3 widthLine = tileRight * 8;
+        Vector3 depthLine = tileForward * 8;
         for (int i = 0; i <= 8; ++i)
         {
-            Vector3 start = UP * i;
+            Vector3 start = tileForward * i;
             Debug.DrawLine(start, start + widthLine);
 
         }
         for (int j = 0; j <= 8; ++j)
         {
-            Vector3 start = RIGHT * j;
+            Vector3 start = tileRight * j;
             Debug.DrawLine(start, start + depthLine);
         }
 
         if (mouseSquare != null) {
-            Debug.DrawLine(RIGHT * mouseSquare.file + UP * mouseSquare.rank,
-                           RIGHT * (mouseSquare.file + 1) + UP * (mouseSquare.rank + 1));
+            Debug.DrawLine(tileRight * mouseSquare.file + tileForward * mouseSquare.rank,
+                           tileRight * (mouseSquare.file + 1) + tileForward * (mouseSquare.rank + 1));
 
-            Debug.DrawLine(RIGHT * mouseSquare.file + UP * (mouseSquare.rank + 1),
-                           RIGHT * (mouseSquare.file + 1) + UP * mouseSquare.rank);
+            Debug.DrawLine(tileRight * mouseSquare.file + tileForward * (mouseSquare.rank + 1),
+                           tileRight * (mouseSquare.file + 1) + tileForward * mouseSquare.rank);
         }
     }
 
@@ -274,8 +278,4 @@ public class GameManager : MonoBehaviour
 
         board.Reset();
     }
-
-    private const float TILE_SIZE = 1.5f;
-    private static readonly Vector3 RIGHT = Vector3.right * TILE_SIZE;
-    private static readonly Vector3 UP = Vector3.forward * TILE_SIZE;
 }
