@@ -1,8 +1,7 @@
 ﻿using System;
-using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
+using System.Linq;
 
 public class Board
 {
@@ -179,7 +178,10 @@ public class Board
             }
         }
 
-        Debug.Assert(p != null && p.type == PieceType.King && p.color == turn);
+        if (p == null || p.type != PieceType.King || p.color != turn)
+        {
+            throw new Exception("failed to find the current player's king");
+        }
 
         return IsCheckedSquare(kingSquare, Opponent(turn));
     }
@@ -246,7 +248,10 @@ public class Board
         public IEnumerable StraightLine(Square to)
         {
             int x = to.file - file, y = to.rank - rank;
-            Debug.Assert(x == 0 || y == 0 || Math.Abs(x) == Math.Abs(y));
+            if (x != 0 && y != 0 && Math.Abs(x) != Math.Abs(y))
+            {
+                throw new Exception("tried to draw a straight line between invalid squares");
+            }
 
             int dir = 0;
             switch (Math.Sign(x))

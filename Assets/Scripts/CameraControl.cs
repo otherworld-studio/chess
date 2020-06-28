@@ -3,7 +3,7 @@
 public class CameraControl : MonoBehaviour
 {
 	[SerializeField]
-	private float rotateSpeed = 5f, zoomSpeed = 8f, zoomLimit = 1f;
+	private float rotateSpeed = 4f, zoomSpeed = 8f, zoomLimit = 1f;
 
 	private float min, max;
 
