@@ -141,7 +141,7 @@ public class GameManager : MonoBehaviour
         // TODO: fix promote bug in WebGL
         PieceType t = (PieceType)type;
         bool debug = board.Promote((PieceType)type);
-        Debug.Assert(debug);
+        //Debug.Assert(board.Promote((PieceType)type));
         debugText.text = t + " " + debug;
         UpdateScene();
         promoteMenu.SetActive(false);
