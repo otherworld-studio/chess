@@ -26,7 +26,7 @@ public class GameManager : MonoBehaviour
     [SerializeField]
     private GameObject promoteMenu, gameOverMenu;
     [SerializeField]
-    private Text turnText, gameOverText, winnerText;
+    private Text turnText, gameOverText, winnerText, debugText;
 
     private Board board;
     private GamePiece[] gamePieces;
@@ -138,7 +138,11 @@ public class GameManager : MonoBehaviour
 
     public void Promote(int type)
     {
-        Debug.Assert(board.Promote((PieceType)type));
+        // TODO: fix promote bug in WebGL
+        PieceType t = (PieceType)type;
+        bool debug = board.Promote((PieceType)type);
+        Debug.Assert(debug);
+        debugText.text = t + " " + debug;
         UpdateScene();
         promoteMenu.SetActive(false);
     }
