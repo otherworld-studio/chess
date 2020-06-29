@@ -12,11 +12,11 @@ using Move = Board.Move;
 
 // TODO:
 // UI menus, pretty color-changing buttons. Make sure entire game board is visible when promote menu is active
-// show pieces that have been taken on the side
-// end game early button
-// improve piece highlighting
-// add square highlighting
+// improve piece highlighting, add square highlighting
+// additional Board draw conditions (threefold repetition, impossible endgame conditions, fifty moves, etc.)
 // online multiplayer
+// draw by mutual agreement (GameManager)
+// show pieces that have been taken on the side of the board
 
 public class GameManager : MonoBehaviour
 {
@@ -30,6 +30,7 @@ public class GameManager : MonoBehaviour
 
     private Board board;
     private GamePiece[] gamePieces;
+    private bool resigned;
 
     private Square _selectedSquare;
     private GamePiece _selectedPiece;
@@ -73,7 +74,7 @@ public class GameManager : MonoBehaviour
 
     void Update()
     {
-        if (board.status != BoardStatus.Playing) return;
+        if (board.status != BoardStatus.Playing || resigned) return;
 
         Square mouseSquare = GetMouseSquare();
         Draw(mouseSquare); // DEBUG
@@ -86,7 +87,7 @@ public class GameManager : MonoBehaviour
             } else
             {
                 Piece p = board.GetPiece(mouseSquare);
-                if (p != null && p.color == board.turn) // player clicked on one of their own pieces
+                if (p != null && p.color == board.whoseTurn) // player clicked on one of their own pieces
                 {
                     selectedSquare = mouseSquare;
                 }
@@ -102,12 +103,21 @@ public class GameManager : MonoBehaviour
                                 break;
                             case BoardStatus.Checkmate:
                                 gameOverText.text = "Checkmate!";
-                                winnerText.text = ((board.turn == PieceColor.White) ? "White" : "Black") + " wins!";
+                                if (board.whoseTurn == PieceColor.White)
+                                {
+                                    winnerText.text = "White wins!";
+                                    winnerText.color = Color.white;
+                                } else
+                                {
+                                    winnerText.text = "Black wins!";
+                                    winnerText.color = Color.black;
+                                }
                                 gameOverMenu.SetActive(true);
                                 break;
                             case BoardStatus.Stalemate:
                                 gameOverText.text = "Stalemate!";
                                 winnerText.text = "Draw";
+                                winnerText.color = (board.whoseTurn == PieceColor.White) ? Color.white : Color.black;
                                 gameOverMenu.SetActive(true);
                                 break;
                         }
@@ -132,24 +142,39 @@ public class GameManager : MonoBehaviour
     public void Reset()
     {
         board = new Board();
+        resigned = false;
         UpdateScene();
         gameOverMenu.SetActive(false);
     }
 
     public void Promote(int type)
     {
-        // TODO: fix promote bug in WebGL
-        PieceType t = (PieceType)type;
-        bool debug = board.Promote((PieceType)type);
-        //Debug.Assert(board.Promote((PieceType)type));
-        debugText.text = t + " " + debug;
+        Debug.Assert(board.Promote((PieceType)type));
         UpdateScene();
         promoteMenu.SetActive(false);
     }
 
+    public void Resign(int player)
+    {
+        resigned = true;
+        if ((PieceColor)player == PieceColor.White)
+        {
+            gameOverText.text = "White resigns";
+            winnerText.text = "Black wins!";
+            winnerText.color = Color.black;
+        }
+        else
+        {
+            gameOverText.text = "Black resigns";
+            winnerText.text = "White wins!";
+            winnerText.color = Color.white;
+        }
+        gameOverMenu.SetActive(true);
+    }
+
     private void UpdateScene()
     {
-        turnText.text = ((board.turn == PieceColor.White) ? "White" : "Black") + "'s move";
+        turnText.text = ((board.whoseTurn == PieceColor.White) ? "White" : "Black") + "'s move";
 
         foreach (Square s in Square.squares)
         {

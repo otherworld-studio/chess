@@ -9,7 +9,7 @@ public class Board
     private Piece[] board;
     private HashSet<Piece> hasMoved; // Contains only kings and rooks that have moved at least once
     private Pawn justDoubleStepped;
-    public PieceColor turn { get; private set; }
+    public PieceColor whoseTurn { get; private set; }
 
     public BoardStatus status { get; private set; }
 
@@ -84,18 +84,12 @@ public class Board
             status = BoardStatus.Promote;
         } else
         {
-            turn = Opponent(turn);
+            whoseTurn = Opponent(whoseTurn);
             if (!legalMoves.Any()) // Game over
             {
-                turn = Opponent(turn); // The turn does not change when the game ends
-                if (KingInCheck())
-                {
-                    status = BoardStatus.Checkmate;
-                }
-                else
-                {
-                    status = BoardStatus.Stalemate;
-                }
+                bool kingInCheck = KingInCheck();
+                whoseTurn = Opponent(whoseTurn); // turn should be the last player to move
+                status = (kingInCheck) ? BoardStatus.Checkmate : BoardStatus.Stalemate;
             }
         }
 
@@ -110,18 +104,12 @@ public class Board
 
         needsPromotion = null;
 
-        turn = Opponent(turn);
+        whoseTurn = Opponent(whoseTurn);
         if (!legalMoves.Any())
         {
-            turn = Opponent(turn);
-            if (KingInCheck())
-            {
-                status = BoardStatus.Checkmate;
-            }
-            else
-            {
-                status = BoardStatus.Stalemate;
-            }
+            bool kingInCheck = KingInCheck();
+            whoseTurn = Opponent(whoseTurn);
+            status = (kingInCheck) ? BoardStatus.Checkmate : BoardStatus.Stalemate;
         }
         else
         {
@@ -136,12 +124,12 @@ public class Board
         if (status != BoardStatus.Playing || move.from == move.to) return false;
 
         Piece p = Get(move.from);
-        if (p.color != turn) return false;
+        if (p.color != whoseTurn) return false;
 
         return p.IsLegalMove(move, this) && IsSafeMove(move);
     }
 
-    // True iff TURN's king's square will not be under attack as a result of this move. Assumes FROM -> TO is otherwise a legal move.
+    // True iff whoseTurn's king's square will not be under attack as a result of this move. Assumes FROM -> TO is otherwise a legal move.
     private bool IsSafeMove(Move move)
     {
         // Copy the game state, perform the move, and revert.
@@ -163,7 +151,7 @@ public class Board
         return !kingInCheck;
     }
 
-    // True iff TURN's king is threatened by an opponent's piece
+    // True iff whoseTurn's king is threatened by an opponent's piece
     public bool KingInCheck()
     {
         Square kingSquare = null;
@@ -171,19 +159,19 @@ public class Board
         foreach (Square s in Square.squares)
         {
             p = Get(s);
-            if (p != null && p.type == PieceType.King && p.color == turn)
+            if (p != null && p.type == PieceType.King && p.color == whoseTurn)
             {
                 kingSquare = s;
                 break;
             }
         }
 
-        if (p == null || p.type != PieceType.King || p.color != turn)
+        if (p == null || p.type != PieceType.King || p.color != whoseTurn)
         {
             throw new Exception("failed to find the current player's king");
         }
 
-        return IsCheckedSquare(kingSquare, Opponent(turn));
+        return IsCheckedSquare(kingSquare, Opponent(whoseTurn));
     }
 
     // True iff COLOR's opponent can move their king to this SQUARE.
@@ -229,7 +217,7 @@ public class Board
             foreach (Square from in Square.squares)
             {
                 Piece p = Get(from);
-                if (p == null || p.color != turn) continue;
+                if (p == null || p.color != whoseTurn) continue;
 
                 foreach (Move m in p.LegalMoves(from, this))
                 {
