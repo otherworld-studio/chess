@@ -11,8 +11,9 @@ using Piece = Board.PieceTag;
 using Move = Board.Move;
 
 // TODO:
-// UI menus, pretty color-changing buttons. Make sure entire game board is visible when promote menu is active
-// improve piece highlighting, add square highlighting
+// promote menu; make sure entire game board is visible
+// on mouseover square: outline square, outline piece if it exists and is one of mine; color of square outline can be dependent on piece conditions as well
+// on select piece: piece moves up, leaving ghost behind; both piece and square outline follow the cursor (but no piece outline); square outline color depends on legality of move
 // additional Board draw conditions (threefold repetition, impossible endgame conditions, fifty moves, etc.)
 // online multiplayer
 // draw by mutual agreement (GameManager)
