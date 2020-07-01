@@ -77,6 +77,7 @@ public class Board
     {
         if (!IsLegalMove(move)) return false;
 
+        _movements = new List<Move>();
         justDoubleStepped = null;
 
         Piece p = Get(move.from);
@@ -84,7 +85,6 @@ public class Board
         Put(move.from, null);
         Put(move.to, p);
 
-        _movements = new List<Move>();
         _movements.Add(move);
 
         if (needsPromotion != null)
