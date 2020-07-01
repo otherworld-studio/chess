@@ -3,6 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
+//TODO: consider making _movements a Queue<Move>
+
 public class Board
 {
     public BoardStatus status { get; private set; }
@@ -82,7 +84,7 @@ public class Board
         Put(move.from, null);
         Put(move.to, p);
 
-        _movements = new List<Move>(); // TODO: queue instead?
+        _movements = new List<Move>();
         _movements.Add(move);
 
         if (needsPromotion != null)

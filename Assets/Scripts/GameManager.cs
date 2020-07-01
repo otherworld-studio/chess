@@ -36,57 +36,52 @@ public class GameManager : MonoBehaviour
     private bool resigned;
 
     private Square _selectedSquare;
-    private GamePiece _selectedPiece;
     private Square selectedSquare {
         get { return _selectedSquare; }
         set {
             if (value == _selectedSquare) return;
 
-            if (_selectedPiece != null)
+            if (_selectedSquare != null) // a piece was already selected
             {
-                _selectedPiece.transform.parent.position = GetSquareCenter(_selectedSquare);
-                _selectedPiece.Select(false);
+                GamePiece selectedPiece = Get(_selectedSquare);
+                selectedPiece.transform.parent.position = GetSquareCenter(_selectedSquare); // If UpdateScene is called (on a successful move) this line won't matter anyway
+                selectedPiece.Select(false);
             }
 
             _selectedSquare = value;
             if (_selectedSquare != null)
             {
-                _selectedPiece = Get(_selectedSquare);
-                _selectedPiece.Highlight(false);
-                _selectedPiece.Select(true);
-            }
-            else
-            {
-                _selectedPiece = null;
+                GamePiece selectedPiece = Get(_selectedSquare);
+                selectedPiece.Highlight(false);
+                selectedPiece.Select(true);
             }
         }
     }
 
     private Square _mouseSquare;
-    private GamePiece _mousePiece;
     private Square mouseSquare
     {
         get { return _mouseSquare; }
         set
         {
             if (value == _mouseSquare) return;
-
-            if (_mousePiece != null) _mousePiece.Highlight(false);
+            
+            if (_mouseSquare != null)
+            {
+                GamePiece mousePiece = Get(_mouseSquare);
+                if (mousePiece != null) mousePiece.Highlight(false);
+            }
 
             _mouseSquare = value;
             if (_mouseSquare != null)
             {
-                if (_selectedPiece != null) _selectedPiece.transform.parent.position = GetSquareCenter(_mouseSquare);
+                if (_selectedSquare != null) Get(_selectedSquare).transform.parent.position = GetSquareCenter(_mouseSquare);
 
                 if (_mouseSquare != _selectedSquare)
                 {
-                    _mousePiece = Get(_mouseSquare);
-                    if (_mousePiece != null) _mousePiece.Highlight(true);
+                    GamePiece mousePiece = Get(_mouseSquare);
+                    if (mousePiece != null) mousePiece.Highlight(true);
                 }
-            }
-            else
-            {
-                _mousePiece = null;
             }
         }
     }
@@ -131,9 +126,11 @@ public class GameManager : MonoBehaviour
             }
             else // the player has attempted to make a move
             {
-                if (board.MakeMove(new Move(selectedSquare, mouseSquare)))
+                bool success = board.MakeMove(new Move(selectedSquare, mouseSquare));
+                selectedSquare = null;
+                if (success)
                 {
-                    UpdateScene();
+                    UpdateScene(); // selectedSquare must be set to null before UpdateScene()
 
                     switch (board.status)
                     {
@@ -161,8 +158,6 @@ public class GameManager : MonoBehaviour
                             break;
                     }
                 }
-
-                selectedSquare = null;
             }
         }
     }
