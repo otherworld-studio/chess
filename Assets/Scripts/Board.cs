@@ -76,13 +76,14 @@ public class Board
         if (!IsLegalMove(move)) return false;
 
         justDoubleStepped = null;
-        _movements = new List<Move>(); // TODO: queue instead?
-        _movements.Add(move);
 
         Piece p = Get(move.from);
+        p.PreMove(move, this); // Extra operations (e.g. take a pawn via en passant, move a rook via castling)
         Put(move.from, null);
         Put(move.to, p);
-        p.PostMove(move, this); // Extra operations (e.g. take a pawn via en passant, move a rook via castling)
+
+        _movements = new List<Move>(); // TODO: queue instead?
+        _movements.Add(move);
 
         if (needsPromotion != null)
         {
@@ -101,12 +102,14 @@ public class Board
         return true;
     }
 
-    // TODO: add promotion to _movements
     public bool Promote(PieceType type)
     {
         if (status != BoardStatus.Promote || type == PieceType.Pawn || type == PieceType.King) return false;
 
         Piece.Spawn(type, Get(needsPromotion).color, needsPromotion, this);
+
+        _movements = new List<Move>();
+        _movements.Add(new Move(needsPromotion, needsPromotion, type));
 
         needsPromotion = null;
 
@@ -143,16 +146,19 @@ public class Board
         Array.Copy(board, boardCopy, 64);
         HashSet<Piece> hasMovedCopy = new HashSet<Piece>(hasMoved);
         Pawn justDoubleSteppedCopy = justDoubleStepped;
+        List<Move> movementsCopy = new List<Move>(_movements);
         
         Piece p = Get(move.from);
+        p.PreMove(move, this); // Tells the piece to do extra things if necessary (e.g. update variables, take a pawn via en passant, move a rook via castling)
         Put(move.from, null);
         Put(move.to, p);
-        p.PostMove(move, this); // Tells the piece to do extra things if necessary (e.g. update variables, take a pawn via en passant, move a rook via castling)
+        
         bool kingInCheck = KingInCheck();
 
         board = boardCopy;
         hasMoved = hasMovedCopy;
         justDoubleStepped = justDoubleSteppedCopy;
+        _movements = movementsCopy;
 
         return !kingInCheck;
     }
@@ -401,7 +407,7 @@ public class Board
         public abstract IEnumerable<Move> LegalMoves(Square from, Board board);
 
         // Assumes the move FROM -> TO is legal, and that promotion != PieceType.King
-        public virtual void PostMove(Move move, Board board) { return; }
+        public virtual void PreMove(Move move, Board board) { return; }
 
         public static void Spawn(PieceType type, PieceColor color, Square square, Board board)
         {
@@ -520,31 +526,28 @@ public class Board
             }
         }
 
-        public override void PostMove(Move move, Board board)
+        public override void PreMove(Move move, Board board)
         {
             if (Math.Abs(move.to.rank - move.from.rank) == 2)
             {
                 board.justDoubleStepped = this;
             }
-            else
+            else if (move.from.file != move.to.file && board.Get(move.to) == null) // En passant
             {
                 Square enPassantSquare = Square.At(move.to.file, move.from.rank);
-                if (board.Get(enPassantSquare) == board.justDoubleStepped)
+                board.Put(enPassantSquare, null);
+                board._movements.Add(new Move(enPassantSquare, null));
+            }
+            else if (move.to.rank == 7 || move.to.rank == 0)
+            {
+                if (move.promotion == PieceType.Pawn)
                 {
-                    board.Put(enPassantSquare, null);
-                    board._movements.Add(new Move(enPassantSquare, null));
-                }
-                else if (move.to.rank == 7 || move.to.rank == 0)
+                    board.needsPromotion = move.to; // Delay piece selection
+                } else
                 {
-                    if (move.promotion == PieceType.Pawn)
-                    {
-                        board.needsPromotion = move.to; // Delay piece selection
-                    }
-                    else
-                    {
-                        Spawn(move.promotion, color, move.to, board);
-                    }
+                    Spawn(move.promotion, color, move.from, board);
                 }
+                
             }
         }
     }
@@ -557,6 +560,8 @@ public class Board
 
         public override bool IsLegalMove(Move move, Board board)
         {
+            if (move.promotion != PieceType.Pawn) return false;
+
             Piece p = board.Get(move.to);
             return (p == null || p.color == opponent) && IsCheckedSquare(move.to, move.from, board);
         }
@@ -605,6 +610,8 @@ public class Board
 
         public override bool IsLegalMove(Move move, Board board)
         {
+            if (move.promotion != PieceType.Pawn) return false;
+
             Piece p = board.Get(move.to);
             return (p == null || p.color == opponent) && IsCheckedSquare(move.to, move.from, board);
         }
@@ -641,6 +648,8 @@ public class Board
 
         public override bool IsLegalMove(Move move, Board board)
         {
+            if (move.promotion != PieceType.Pawn) return false;
+
             Piece p = board.Get(move.to);
             return (p == null || p.color == opponent) && IsCheckedSquare(move.to, move.from, board);
         }
@@ -668,7 +677,7 @@ public class Board
             }
         }
 
-        public override void PostMove(Move move, Board board)
+        public override void PreMove(Move move, Board board)
         {
             board.hasMoved.Add(this);
         }
@@ -682,6 +691,8 @@ public class Board
 
         public override bool IsLegalMove(Move move, Board board)
         {
+            if (move.promotion != PieceType.Pawn) return false;
+
             Piece p = board.Get(move.to);
             return (p == null || p.color == opponent) && IsCheckedSquare(move.to, move.from, board);
         }
@@ -720,6 +731,8 @@ public class Board
         // Assume that TO is a safe square - that is verified in board.IsLegalMove. Do not assume that it is empty.
         public override bool IsLegalMove(Move move, Board board)
         {
+            if (move.promotion != PieceType.Pawn) return false;
+
             int x = move.to.file - move.from.file, y = move.to.rank - move.from.rank;
             if (Math.Abs(x) > 1) // Castling
             {
@@ -779,7 +792,7 @@ public class Board
             }
         }
 
-        public override void PostMove(Move move, Board board)
+        public override void PreMove(Move move, Board board)
         {
             board.hasMoved.Add(this);
 
