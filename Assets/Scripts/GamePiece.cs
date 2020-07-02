@@ -4,21 +4,24 @@ using UnityEngine;
 // Attached to each piece prefab as a component
 public class GamePiece : MonoBehaviour
 {
+    public Renderer renderer;
+
     private Color startColor;
 
     private GamePiece ghost;
 
     private const float height = 2.3f; // Height of picked up pieces, in board tiles
-    private const float speed = 5f; // Reciprocal of duration in seconds
+    private const float speed = 10f; // Reciprocal of duration in seconds
+    private const float ghostAlpha = 0.25f;
 
     void Awake()
     {
-        startColor = GetComponent<Renderer>().material.color;
+        renderer.material.SetFloat("_ZWrite", 1);
+        startColor = renderer.material.color;
     }
 
     public void Highlight(bool value)
     {
-        Renderer renderer = GetComponent<Renderer>();
         if (value)
         {
             renderer.material.color = Color.yellow; // TODO: make your own shader
@@ -42,12 +45,11 @@ public class GamePiece : MonoBehaviour
 
     private IEnumerator PickUp()
     {
-        ghost = Instantiate(this, transform.parent.position, transform.parent.rotation);
-        Renderer renderer = ghost.GetComponent<Renderer>();
-        Color oldColor = renderer.material.color;
-        renderer.material.color = new Color(oldColor.r, oldColor.g, oldColor.b, 0.5f);
+        ghost = Instantiate(this);
+        Color oldColor = ghost.renderer.material.color;
+        ghost.renderer.material.color = new Color(oldColor.r, oldColor.g, oldColor.b, ghostAlpha);
 
-        foreach (object nil in Lerp(Vector3.zero, height * GameManager.tileUp))
+        foreach (object nil in LerpCoroutine(Vector3.zero, height * GameManager.tileUp))
         {
             yield return null;
         }
@@ -58,26 +60,26 @@ public class GamePiece : MonoBehaviour
         Destroy(ghost.gameObject);
         ghost = null;
 
-        foreach (object nil in Lerp(height * GameManager.tileUp, Vector3.zero))
+        foreach (object nil in LerpCoroutine(height * GameManager.tileUp, Vector3.zero))
         {
             yield return null;
         }
     }
 
-    private IEnumerable Lerp(Vector3 start, Vector3 end)
+    private IEnumerable LerpCoroutine(Vector3 start, Vector3 end)
     {
-        transform.localPosition = start;
+        renderer.transform.localPosition = start;
         yield return null;
 
         float t = Time.deltaTime * speed;
         while (t < 1f)
         {
-            transform.localPosition = Vector3.Lerp(start, end, t);
+            renderer.transform.localPosition = Vector3.Lerp(start, end, t);
             yield return null;
 
             t += Time.deltaTime * speed;
         }
 
-        transform.localPosition = end;
+        renderer.transform.localPosition = end;
     }
 }

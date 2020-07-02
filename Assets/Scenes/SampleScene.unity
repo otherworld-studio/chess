@@ -586,24 +586,25 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   piecePrefabs:
-  - {fileID: 1056174629934135164, guid: 4c4f6244761b22d409c931f17ce4877c, type: 3}
-  - {fileID: 6043985357984312512, guid: d211051709480934da95785bb6249cc0, type: 3}
-  - {fileID: 7078145716014600419, guid: a51b6223b247e9141abd0846c58448e3, type: 3}
-  - {fileID: 717749495289890533, guid: f6035bf9f82fee04194539e5979bfca1, type: 3}
-  - {fileID: 4772350735816367001, guid: 74e65f09d340e7b4299f485b5be5633f, type: 3}
-  - {fileID: 1874396986648891133, guid: 675d4b40be2934f40ab49aa41b3ce99f, type: 3}
-  - {fileID: 8091727983247476032, guid: 3c85770a4594c274aad77f6e60a9234f, type: 3}
-  - {fileID: 119707354285376094, guid: a2e0d7ce1ec42c54fbc52f77ebf58a76, type: 3}
-  - {fileID: 678291757170583911, guid: 334711ee83468b74a9c690abb97f22b3, type: 3}
-  - {fileID: 4919702283985663065, guid: 1cd1246e0bdeb5d4288e67abc19ea760, type: 3}
-  - {fileID: 7405801138375919082, guid: 800e9e9368f691d4394396896a5f0631, type: 3}
-  - {fileID: 5822584319958111637, guid: 698f705a8041e174b857cf0aaf6aaa40, type: 3}
+  - {fileID: 583168145, guid: 4c4f6244761b22d409c931f17ce4877c, type: 3}
+  - {fileID: 1097728651, guid: d211051709480934da95785bb6249cc0, type: 3}
+  - {fileID: 1712495785, guid: a51b6223b247e9141abd0846c58448e3, type: 3}
+  - {fileID: 794955425, guid: f6035bf9f82fee04194539e5979bfca1, type: 3}
+  - {fileID: 2058679925, guid: 74e65f09d340e7b4299f485b5be5633f, type: 3}
+  - {fileID: 381119670, guid: 675d4b40be2934f40ab49aa41b3ce99f, type: 3}
+  - {fileID: 5596216435151993014, guid: 3c85770a4594c274aad77f6e60a9234f, type: 3}
+  - {fileID: 4612043093123878885, guid: a2e0d7ce1ec42c54fbc52f77ebf58a76, type: 3}
+  - {fileID: 6466839802053403484, guid: 334711ee83468b74a9c690abb97f22b3, type: 3}
+  - {fileID: 47869687, guid: 1cd1246e0bdeb5d4288e67abc19ea760, type: 3}
+  - {fileID: 3469945752820951794, guid: 800e9e9368f691d4394396896a5f0631, type: 3}
+  - {fileID: 8161087410110819126, guid: 698f705a8041e174b857cf0aaf6aaa40, type: 3}
   promoteMenu: {fileID: 1915334432}
   gameOverMenu: {fileID: 457142932}
   turnText: {fileID: 1886675644}
   gameOverText: {fileID: 1715942997}
   winnerText: {fileID: 350786604}
   debugText: {fileID: 87407688}
+  boardObject: {fileID: 1325377754}
 --- !u!4 &463424611
 Transform:
   m_ObjectHideFlags: 0
@@ -1665,6 +1666,12 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1240654132}
   m_CullTransparentMesh: 0
+--- !u!1 &1325377754 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 166942, guid: 31270e9f38d5e7a448ae050b9633fce3,
+    type: 3}
+  m_PrefabInstance: {fileID: 905933543}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1451205118
 GameObject:
   m_ObjectHideFlags: 0

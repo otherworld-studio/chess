@@ -12,7 +12,6 @@ GameObject:
   - component: {fileID: 4457568608519449550}
   - component: {fileID: 4457568608518341408}
   - component: {fileID: 4457568608522522818}
-  - component: {fileID: 7859219638166208409}
   m_Layer: 0
   m_Name: Black King
   m_TagString: Untagged
@@ -60,7 +59,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: fdf806cb46d6a40418581d1568ff1c94, type: 2}
+  - {fileID: 2100000, guid: 33be6a53b620c6d47b70d1e1c2f69e74, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -95,19 +94,6 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 14
   m_Mesh: {fileID: 4300002, guid: a1edea9a41e71514f94a737abaf1410c, type: 3}
---- !u!114 &7859219638166208409
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4457568608516157922}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d8c285eb53c0eed48ad4d235f2e4b88f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  renderer: {fileID: 4457568608518341408}
 --- !u!1 &5822584319958111637
 GameObject:
   m_ObjectHideFlags: 0
@@ -117,6 +103,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 5822584319958025625}
+  - component: {fileID: 8161087410110819126}
   m_Layer: 0
   m_Name: Black King
   m_TagString: Untagged
@@ -139,3 +126,16 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &8161087410110819126
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5822584319958111637}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d8c285eb53c0eed48ad4d235f2e4b88f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  renderer: {fileID: 4457568608518341408}

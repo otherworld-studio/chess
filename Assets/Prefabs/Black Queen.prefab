@@ -12,7 +12,6 @@ GameObject:
   - component: {fileID: 4117415775939410832}
   - component: {fileID: 4117415775938362122}
   - component: {fileID: 4117415775934304762}
-  - component: {fileID: 9047876315036222435}
   m_Layer: 0
   m_Name: Black Queen
   m_TagString: Untagged
@@ -60,7 +59,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: fdf806cb46d6a40418581d1568ff1c94, type: 2}
+  - {fileID: 2100000, guid: 33be6a53b620c6d47b70d1e1c2f69e74, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -95,19 +94,6 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 14
   m_Mesh: {fileID: 4300000, guid: 5d7a66b35fd81564380721b6bfcaaa47, type: 3}
---- !u!114 &9047876315036222435
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4117415775936202722}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d8c285eb53c0eed48ad4d235f2e4b88f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  renderer: {fileID: 4117415775938362122}
 --- !u!1 &7405801138375919082
 GameObject:
   m_ObjectHideFlags: 0
@@ -117,6 +103,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7405801138375684300}
+  - component: {fileID: 3469945752820951794}
   m_Layer: 0
   m_Name: Black Queen
   m_TagString: Untagged
@@ -139,3 +126,16 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3469945752820951794
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7405801138375919082}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d8c285eb53c0eed48ad4d235f2e4b88f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  renderer: {fileID: 4117415775938362122}

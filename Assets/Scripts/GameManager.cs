@@ -13,8 +13,8 @@ using Move = Board.Move;
 // TODO:
 // promote menu (radial): https://answers.unity.com/questions/652859/how-can-i-make-my-gui-button-appear-above-my-click.html
 // also https://answers.unity.com/questions/1107023/trouble-positioning-ui-buttons-in-radial-menu-arou.html
+// improve piece highlighting: https://forum.unity.com/threads/solved-gameobject-picking-highlighting-and-outlining.40407/
 // outline square on mouseover (color of outline can be dependent on piece conditions, e.g. legality)
-// make ghost pieces transparent
 // additional Board draw conditions (threefold repetition, impossible endgame conditions, fifty moves, etc.)
 // online multiplayer
 // draw by mutual agreement (GameManager)
@@ -23,13 +23,15 @@ using Move = Board.Move;
 public class GameManager : MonoBehaviour
 {
     [SerializeField]
-    private List<GameObject> piecePrefabs;
+    private List<GamePiece> piecePrefabs;
 
     [SerializeField]
     private GameObject promoteMenu, gameOverMenu;
     [SerializeField]
     private Text turnText, gameOverText, winnerText, debugText;
-    //TODO: add reference to boardObject & rewrite all transform code (boardCenter returns boardObject.position, piece prefabs & ghosts are instantiated as children of boardObject, etc.)
+    [SerializeField]
+    private GameObject boardObject;
+    //TODO: rewrite transform code (piece prefabs & ghosts are instantiated as children of boardObject, etc.)
 
     private Board board;
     private GamePiece[] gamePieces;
@@ -44,7 +46,7 @@ public class GameManager : MonoBehaviour
             if (_selectedSquare != null) // a piece was already selected
             {
                 GamePiece selectedPiece = Get(_selectedSquare);
-                selectedPiece.transform.parent.position = GetSquareCenter(_selectedSquare); // If UpdateScene is called (on a successful move) this line won't matter anyway
+                selectedPiece.transform.position = GetSquareCenter(_selectedSquare); // If UpdateScene is called (on a successful move) this line won't matter anyway
                 selectedPiece.Select(false);
             }
 
@@ -75,7 +77,7 @@ public class GameManager : MonoBehaviour
             _mouseSquare = value;
             if (_mouseSquare != null)
             {
-                if (_selectedSquare != null) Get(_selectedSquare).transform.parent.position = GetSquareCenter(_mouseSquare);
+                if (_selectedSquare != null) Get(_selectedSquare).transform.position = GetSquareCenter(_mouseSquare);
 
                 if (_mouseSquare != _selectedSquare)
                 {
@@ -88,7 +90,9 @@ public class GameManager : MonoBehaviour
 
     public const float tileSize = 1.5f;
     public static readonly Vector3 tileRight = Vector3.right * tileSize, tileUp = Vector3.up * tileSize, tileForward = Vector3.forward * tileSize;
-    public static readonly Vector3 boardCenter = 4 * (tileRight + tileForward);
+
+    public static Vector3 boardCenter { get { return singletonInstance.boardObject.transform.position; } }
+    public static Vector3 boardCorner { get { return boardCenter - 4 * (tileRight + tileForward); } }
 
     private static GameManager singletonInstance = null;
 
@@ -107,7 +111,7 @@ public class GameManager : MonoBehaviour
         if (board.status != BoardStatus.Playing || resigned) return;
 
         mouseSquare = GetMouseSquare();
-        Draw(mouseSquare); // DEBUG
+        Draw(); // DEBUG
 
         if (Input.GetMouseButtonDown(0))
         {
@@ -179,7 +183,7 @@ public class GameManager : MonoBehaviour
         foreach (Square s in Square.squares)
         {
             GamePiece g = Get(s);
-            if (g != null) Destroy(g.transform.parent.gameObject);
+            if (g != null) Destroy(g.gameObject);
 
             PieceData p = board.GetPiece(s);
             if (p != null) Spawn(p, s);
@@ -225,36 +229,38 @@ public class GameManager : MonoBehaviour
         }
 
         // Handle castles and en passants
-        // TODO: this is very, very broken
         foreach (Move m in board.movements)
         {
             GamePiece g = Get(m.from);
-            if (m.to != m.from) {
-                Set(m.from, null);
-            }
-            else
-            {
+            if (m.to == m.from) {
                 Spawn(board.GetPiece(m.to), m.to);
                 Destroy(g.gameObject);
             }
-
-            if (m.to != null)
+            else // promotion
             {
-                GamePiece h = Get(m.to);
-                if (h != null) Destroy(h.gameObject);
+                Set(m.from, null);
 
-                Set(m.to, g);
-                g.transform.parent.position = GetSquareCenter(m.to);
-            } else
-            {
-                Destroy(g.gameObject);
+                if (m.to != null)
+                {
+                    GamePiece h = Get(m.to);
+                    if (h != null) Destroy(h.gameObject);
+
+                    Set(m.to, g);
+                    g.transform.position = GetSquareCenter(m.to);
+                }
+                else
+                {
+                    Destroy(g.gameObject);
+                }
             }
         }
     }
 
     private void Spawn(PieceData piece, Square square)
     {
-        GamePiece p = Instantiate(piecePrefabs[(int)piece.type + 6 * (int)piece.color], GetSquareCenter(square), Quaternion.identity).GetComponentInChildren<GamePiece>();
+        GamePiece p = Instantiate(piecePrefabs[(int)piece.type + 6 * (int)piece.color], GetSquareCenter(square), Quaternion.identity);
+        Color debug = p.renderer.material.color;
+        p.renderer.material.color = new Color(debug.r, debug.g, debug.b, 1.0f);
         Debug.Assert(p != null);
         Set(square, p);
     }
@@ -266,7 +272,7 @@ public class GameManager : MonoBehaviour
         RaycastHit hit;
         if (Physics.Raycast(Camera.main.ScreenPointToRay(Input.mousePosition), out hit, 25.0f, LayerMask.GetMask("Board")))
         {
-            int x = (int)(hit.point.x / tileSize), y = (int)(hit.point.z / tileSize);
+            int x = (int)Mathf.Floor((hit.point.x - boardCenter.x) / tileSize) + 4, y = (int)Mathf.Floor((hit.point.z - boardCenter.z) / tileSize) + 4;
             return (Square.Exists(x, y)) ? Square.At(x, y) : null;
         }
 
@@ -275,31 +281,33 @@ public class GameManager : MonoBehaviour
 
     private Vector3 GetSquareCenter(Square square)
     {
-        return tileRight * (square.file + 0.5f) + tileForward * (square.rank + 0.5f);
+        return boardCenter + tileRight * (square.file - 3.5f) + tileForward * (square.rank - 3.5f);
     }
 
-    private void Draw(Square mouseSquare)
+    private void Draw()
     {
-        Vector3 widthLine = tileRight * 8;
-        Vector3 depthLine = tileForward * 8;
-        for (int i = 0; i <= 8; ++i)
+        Vector3 start = boardCorner;
+        Debug.DrawLine(start, start + tileRight * 8);
+        for (int i = 0; i < 8; ++i) // Horizontal lines
         {
-            Vector3 start = tileForward * i;
-            Debug.DrawLine(start, start + widthLine);
+            start += tileForward;
+            Debug.DrawLine(start, start + tileRight * 8);
 
         }
-        for (int j = 0; j <= 8; ++j)
+        start = boardCorner;
+        Debug.DrawLine(start, start + tileForward * 8);
+        for (int j = 0; j < 8; ++j) // Vertical lines
         {
-            Vector3 start = tileRight * j;
-            Debug.DrawLine(start, start + depthLine);
+            start += tileRight;
+            Debug.DrawLine(start, start + tileForward * 8);
         }
 
         if (mouseSquare != null) {
-            Debug.DrawLine(tileRight * mouseSquare.file + tileForward * mouseSquare.rank,
-                           tileRight * (mouseSquare.file + 1) + tileForward * (mouseSquare.rank + 1));
+            Debug.DrawLine(boardCorner + tileRight * mouseSquare.file + tileForward * mouseSquare.rank,
+                           boardCorner + tileRight * (mouseSquare.file + 1) + tileForward * (mouseSquare.rank + 1));
 
-            Debug.DrawLine(tileRight * mouseSquare.file + tileForward * (mouseSquare.rank + 1),
-                           tileRight * (mouseSquare.file + 1) + tileForward * mouseSquare.rank);
+            Debug.DrawLine(boardCorner + tileRight * mouseSquare.file + tileForward * (mouseSquare.rank + 1),
+                           boardCorner + tileRight * (mouseSquare.file + 1) + tileForward * mouseSquare.rank);
         }
     }
 }
