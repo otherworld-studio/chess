@@ -11,8 +11,8 @@ using PieceData = Board.PieceData;
 using Move = Board.Move;
 
 // TODO:
-// promote menu (radial): https://answers.unity.com/questions/652859/how-can-i-make-my-gui-button-appear-above-my-click.html
-// also https://answers.unity.com/questions/1107023/trouble-positioning-ui-buttons-in-radial-menu-arou.html
+// make promote menu radius scale with piece size on screen (with a minimum radius bound)
+// make promote menu wait until piece has stopped moving (how to wait for a coroutine?)
 // improve piece highlighting: https://forum.unity.com/threads/solved-gameobject-picking-highlighting-and-outlining.40407/
 // outline square on mouseover (color of outline can be dependent on piece conditions, e.g. legality)
 // additional Board draw conditions (threefold repetition, impossible endgame conditions, fifty moves, etc.)

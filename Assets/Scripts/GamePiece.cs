@@ -1,11 +1,8 @@
-﻿#pragma strict
-
-using System.Collections;
+﻿using System.Collections;
 using UnityEngine;
 
 using PieceType = Board.PieceType;
 
-// Attached to each piece prefab as a component
 public class GamePiece : MonoBehaviour
 {
     [SerializeField]
@@ -13,7 +10,7 @@ public class GamePiece : MonoBehaviour
     [SerializeField]
     private Renderer renderer;
     [SerializeField]
-    private GameObject promoteMenu;
+    private PromoteMenu promoteMenu;
 
     private Color startColor;
 
@@ -59,7 +56,7 @@ public class GamePiece : MonoBehaviour
         ghost.renderer.material.color = new Color(oldColor.r, oldColor.g, oldColor.b, ghostAlpha);
 
         Vector3 start = Vector3.up * yOffset;
-        foreach (object nil in MovementCoroutine(start, start + height * GameManager.tileUp))
+        foreach (object nil in MoveVerticalCoroutine(start, start + height * GameManager.tileUp))
         {
             yield return null;
         }
@@ -71,13 +68,13 @@ public class GamePiece : MonoBehaviour
         ghost = null;
 
         Vector3 start = Vector3.up * yOffset;
-        foreach (object nil in MovementCoroutine(start + height * GameManager.tileUp, start))
+        foreach (object nil in MoveVerticalCoroutine(start + height * GameManager.tileUp, start))
         {
             yield return null;
         }
     }
 
-    private IEnumerable MovementCoroutine(Vector3 start, Vector3 end)
+    private IEnumerable MoveVerticalCoroutine(Vector3 start, Vector3 end)
     {
         renderer.transform.localPosition = start;
         yield return null;
@@ -96,13 +93,12 @@ public class GamePiece : MonoBehaviour
 
     public void RequestPromotion()
     {
-        Debug.Assert(promoteMenu != null);
-        promoteMenu.SetActive(true);
+        promoteMenu.enabled = true;
     }
 
     public void Promote(int type)
     {
         GameManager.Promote((PieceType)type);
-        promoteMenu.SetActive(false);
+        promoteMenu.enabled = false;
     }
 }
