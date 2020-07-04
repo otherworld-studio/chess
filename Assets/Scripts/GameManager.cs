@@ -6,14 +6,15 @@ using BoardStatus = Board.BoardStatus;
 using Square = Board.Square;
 using PieceType = Board.PieceType;
 using PieceColor = Board.PieceColor;
-using Piece = Board.PieceTag;
+using PieceData = Board.PieceData;
 
 using Move = Board.Move;
 
 // TODO:
-// promote menu; make sure entire game board is visible
-// on mouseover square: outline square, outline piece if it exists and is one of mine; color of square outline can be dependent on piece conditions as well
-// on select piece: piece moves up, leaving ghost behind; both piece and square outline follow the cursor (but no piece outline); square outline color depends on legality of move
+// promote menu (radial): https://answers.unity.com/questions/652859/how-can-i-make-my-gui-button-appear-above-my-click.html
+// also https://answers.unity.com/questions/1107023/trouble-positioning-ui-buttons-in-radial-menu-arou.html
+// improve piece highlighting: https://forum.unity.com/threads/solved-gameobject-picking-highlighting-and-outlining.40407/
+// outline square on mouseover (color of outline can be dependent on piece conditions, e.g. legality)
 // additional Board draw conditions (threefold repetition, impossible endgame conditions, fifty moves, etc.)
 // online multiplayer
 // draw by mutual agreement (GameManager)
@@ -22,109 +23,137 @@ using Move = Board.Move;
 public class GameManager : MonoBehaviour
 {
     [SerializeField]
-    private List<GameObject> piecePrefabs;
+    private List<GamePiece> piecePrefabs;
 
     [SerializeField]
-    private GameObject promoteMenu, gameOverMenu;
-    [SerializeField]
     private Text turnText, gameOverText, winnerText, debugText;
+    [SerializeField]
+    private GameObject boardObject, gameOverMenu;
+
+    private static GameManager instance = null; // singleton instance
 
     private Board board;
     private GamePiece[] gamePieces;
     private bool resigned;
 
     private Square _selectedSquare;
-    private GamePiece _selectedPiece;
     private Square selectedSquare {
         get { return _selectedSquare; }
         set {
-            if (_selectedPiece != null) _selectedPiece.Highlight(false);
+            if (value == _selectedSquare) return;
+
+            if (_selectedSquare != null) // a piece was already selected
+            {
+                GamePiece selectedPiece = Get(_selectedSquare);
+                selectedPiece.transform.position = GetSquareCenter(_selectedSquare); // If UpdateScene is called afterward (on a successful move) this line won't matter anyway
+                selectedPiece.Select(false);
+            }
+
             _selectedSquare = value;
-            if (_selectedSquare == null)
+            if (_selectedSquare != null)
             {
-                _selectedPiece = null;
-            } else
+                GamePiece selectedPiece = Get(_selectedSquare);
+                selectedPiece.Highlight(false);
+                selectedPiece.Select(true);
+            }
+        }
+    }
+
+    private Square _mouseSquare;
+    private Square mouseSquare
+    {
+        get { return _mouseSquare; }
+        set
+        {
+            if (value == _mouseSquare) return;
+            
+            if (_mouseSquare != null)
             {
-                _selectedPiece = Get(_selectedSquare);
-                if (_selectedPiece != null) _selectedPiece.Highlight(true);
+                GamePiece mousePiece = Get(_mouseSquare);
+                if (mousePiece != null) mousePiece.Highlight(false);
+            }
+
+            _mouseSquare = value;
+            if (_mouseSquare != null)
+            {
+                if (_selectedSquare != null) Get(_selectedSquare).transform.position = GetSquareCenter(_mouseSquare);
+
+                if (_mouseSquare != _selectedSquare)
+                {
+                    GamePiece mousePiece = Get(_mouseSquare);
+                    if (mousePiece != null) mousePiece.Highlight(true);
+                }
             }
         }
     }
 
     public const float tileSize = 1.5f;
     public static readonly Vector3 tileRight = Vector3.right * tileSize, tileUp = Vector3.up * tileSize, tileForward = Vector3.forward * tileSize;
-    public static readonly Vector3 boardCenter = 4 * (tileRight + tileForward);
 
-    private static GameManager singletonInstance = null;
+    public static Vector3 boardCenter { get { return instance.boardObject.transform.position; } }
+    public static Vector3 boardCorner { get { return boardCenter - 4 * (tileRight + tileForward); } }
 
     void Awake()
     {
-        Debug.Assert(singletonInstance == null);
-        singletonInstance = this;
+        Debug.Assert(instance == null);
+        instance = this;
 
-        board = new Board();
         gamePieces = new GamePiece[64];
-    }
 
-    void Start()
-    {
-        Tests();
-
-        UpdateScene();
+        Reset();
     }
 
     void Update()
     {
         if (board.status != BoardStatus.Playing || resigned) return;
 
-        Square mouseSquare = GetMouseSquare();
-        Draw(mouseSquare); // DEBUG
+        mouseSquare = GetMouseSquare();
+        DrawDebugLines(); // DEBUG
 
-        if (Input.GetMouseButtonDown(0) && mouseSquare != null)
+        if (Input.GetMouseButtonDown(0))
         {
-            if (mouseSquare == selectedSquare) // player clicked on the same piece/square twice
+            if (mouseSquare == null) // clicked outside the board
             {
                 selectedSquare = null;
-            } else
+            }
+            else if (selectedSquare == null) // clicked on the board, but no previously selected square
             {
-                Piece p = board.GetPiece(mouseSquare);
-                if (p != null && p.color == board.whoseTurn) // player clicked on one of their own pieces
+                PieceData p = board.GetPiece(mouseSquare);
+                if (p != null && p.color == board.whoseTurn) selectedSquare = mouseSquare; // only select if it's one of our pieces
+            }
+            else // the player has attempted to make a move
+            {
+                bool success = board.MakeMove(new Move(selectedSquare, mouseSquare));
+                selectedSquare = null; // piece must be unselected before any calls to UpdateScene()
+                if (success)
                 {
-                    selectedSquare = mouseSquare;
-                }
-                else if (selectedSquare != null) // the player has attempted to make a move
-                {
-                    if (board.MakeMove(new Move(selectedSquare, mouseSquare)))
-                    {
-                        UpdateScene();
-                        switch (board.status)
-                        {
-                            case BoardStatus.Promote:
-                                promoteMenu.SetActive(true);
-                                break;
-                            case BoardStatus.Checkmate:
-                                gameOverText.text = "Checkmate!";
-                                if (board.whoseTurn == PieceColor.White)
-                                {
-                                    winnerText.text = "White wins!";
-                                    winnerText.color = Color.white;
-                                } else
-                                {
-                                    winnerText.text = "Black wins!";
-                                    winnerText.color = Color.black;
-                                }
-                                gameOverMenu.SetActive(true);
-                                break;
-                            case BoardStatus.Stalemate:
-                                gameOverText.text = "Stalemate!";
-                                winnerText.text = "Draw";
-                                winnerText.color = (board.whoseTurn == PieceColor.White) ? Color.white : Color.black;
-                                gameOverMenu.SetActive(true);
-                                break;
-                        }
-                    }
+                    UpdateScene();
 
-                    selectedSquare = null;
+                    switch (board.status)
+                    {
+                        case BoardStatus.Promote:
+                            Get(board.needsPromotion).RequestPromotion();
+                            break;
+                        case BoardStatus.Checkmate:
+                            gameOverText.text = "Checkmate!";
+                            if (board.whoseTurn == PieceColor.White)
+                            {
+                                winnerText.text = "White wins!";
+                                winnerText.color = Color.white;
+                            } else
+                            {
+                                winnerText.text = "Black wins!";
+                                winnerText.color = Color.black;
+                            }
+                            gameOverMenu.SetActive(true);
+                            break;
+                        case BoardStatus.Stalemate:
+                            gameOverText.text = "Stalemate!";
+                            winnerText.text = "Draw";
+                            winnerText.color = (board.whoseTurn == PieceColor.White) ? Color.white : Color.black;
+                            gameOverMenu.SetActive(true);
+                            break;
+                    }
                 }
             }
         }
@@ -140,76 +169,90 @@ public class GameManager : MonoBehaviour
         gamePieces[8 * square.rank + square.file] = piece;
     }
 
-    public void Reset()
+    public static void Reset()
     {
-        board = new Board();
-        resigned = false;
-        UpdateScene();
-        gameOverMenu.SetActive(false);
+        instance.board = new Board();
+        instance.resigned = false;
+        foreach (Square s in Square.squares)
+        {
+            GamePiece g = instance.Get(s);
+            if (g != null) Destroy(g.gameObject);
+
+            PieceData p = instance.board.GetPiece(s);
+            if (p != null) instance.Spawn(p, s);
+        }
+        instance.gameOverMenu.SetActive(false);
     }
 
-    public void Promote(int type)
+    public static void Promote(PieceType type)
     {
-        Debug.Assert(board.Promote((PieceType)type));
-        UpdateScene();
-        promoteMenu.SetActive(false);
+        bool success = instance.board.Promote(type);
+        Debug.Assert(success);
+        instance.UpdateScene();
     }
 
-    public void Resign(int player)
+    public static void Resign(int player)
     {
-        resigned = true;
+        instance.resigned = true;
         if ((PieceColor)player == PieceColor.White)
         {
-            gameOverText.text = "White resigns";
-            winnerText.text = "Black wins!";
-            winnerText.color = Color.black;
+            instance.gameOverText.text = "White resigns";
+            instance.winnerText.text = "Black wins!";
+            instance.winnerText.color = Color.black;
         }
         else
         {
-            gameOverText.text = "Black resigns";
-            winnerText.text = "White wins!";
-            winnerText.color = Color.white;
+            instance.gameOverText.text = "Black resigns";
+            instance.winnerText.text = "White wins!";
+            instance.winnerText.color = Color.white;
         }
-        gameOverMenu.SetActive(true);
+        instance.gameOverMenu.SetActive(true);
     }
 
     private void UpdateScene()
     {
-        turnText.text = ((board.whoseTurn == PieceColor.White) ? "White" : "Black") + "'s move";
-
-        foreach (Square s in Square.squares)
+        if (board.whoseTurn == PieceColor.White)
         {
-            Piece p = board.GetPiece(s);
-            GamePiece g = Get(s);
-            if (p == null)
+            turnText.text = "White's move";
+            turnText.color = Color.white;
+        } else
+        {
+            turnText.text = "Black's move";
+            turnText.color = Color.black;
+        }
+
+        // Handle castles and en passants
+        foreach (Move m in board.movements)
+        {
+            GamePiece g = Get(m.from);
+            if (m.to == m.from) {
+                Spawn(board.GetPiece(m.to), m.to);
+                Destroy(g.gameObject);
+            }
+            else // promotion
             {
-                if (g != null)
+                Set(m.from, null);
+
+                if (m.to != null)
                 {
-                    // TODO: add new location field to PieceTag? Then we could just update the position
-                    Destroy(g.gameObject);
-                    Set(s, null);
+                    GamePiece h = Get(m.to);
+                    if (h != null) Destroy(h.gameObject);
+
+                    Set(m.to, g);
+                    g.transform.position = GetSquareCenter(m.to);
                 }
-            } else
-            {
-                if (g == null)
-                {
-                    Spawn(p, s);
-                }
-                else if (g.piece != p)
+                else
                 {
                     Destroy(g.gameObject);
-                    Spawn(p, s);
                 }
             }
         }
     }
 
-    private void Spawn(Piece piece, Square square)
+    private void Spawn(PieceData piece, Square square)
     {
-        Quaternion rotation = (piece.color == PieceColor.White) ? Quaternion.identity : Quaternion.Euler(Vector3.up * 180f);
-        GamePiece p = Instantiate(piecePrefabs[(int)piece.type + 6 * (int)piece.color], GetSquareCenter(square), rotation).GetComponent<GamePiece>();
-        Debug.Assert(p != null, piece.type);
-        p.piece = piece;
+        GamePiece p = Instantiate(piecePrefabs[(int)piece.type + 6 * (int)piece.color], GetSquareCenter(square), Quaternion.identity);
+        Debug.Assert(p != null);
         Set(square, p);
     }
 
@@ -220,7 +263,7 @@ public class GameManager : MonoBehaviour
         RaycastHit hit;
         if (Physics.Raycast(Camera.main.ScreenPointToRay(Input.mousePosition), out hit, 25.0f, LayerMask.GetMask("Board")))
         {
-            int x = (int)(hit.point.x / tileSize), y = (int)(hit.point.z / tileSize);
+            int x = (int)Mathf.Floor((hit.point.x - boardCenter.x) / tileSize) + 4, y = (int)Mathf.Floor((hit.point.z - boardCenter.z) / tileSize) + 4;
             return (Square.Exists(x, y)) ? Square.At(x, y) : null;
         }
 
@@ -229,124 +272,33 @@ public class GameManager : MonoBehaviour
 
     private Vector3 GetSquareCenter(Square square)
     {
-        return tileRight * (square.file + 0.5f) + tileForward * (square.rank + 0.5f);
+        return boardCenter + tileRight * (square.file - 3.5f) + tileForward * (square.rank - 3.5f);
     }
 
-    private void Draw(Square mouseSquare)
+    private void DrawDebugLines()
     {
-        Vector3 widthLine = tileRight * 8;
-        Vector3 depthLine = tileForward * 8;
-        for (int i = 0; i <= 8; ++i)
+        Vector3 start = boardCorner;
+        Debug.DrawLine(start, start + tileRight * 8);
+        for (int i = 0; i < 8; ++i) // Horizontal lines
         {
-            Vector3 start = tileForward * i;
-            Debug.DrawLine(start, start + widthLine);
+            start += tileForward;
+            Debug.DrawLine(start, start + tileRight * 8);
 
         }
-        for (int j = 0; j <= 8; ++j)
+        start = boardCorner;
+        Debug.DrawLine(start, start + tileForward * 8);
+        for (int j = 0; j < 8; ++j) // Vertical lines
         {
-            Vector3 start = tileRight * j;
-            Debug.DrawLine(start, start + depthLine);
+            start += tileRight;
+            Debug.DrawLine(start, start + tileForward * 8);
         }
 
         if (mouseSquare != null) {
-            Debug.DrawLine(tileRight * mouseSquare.file + tileForward * mouseSquare.rank,
-                           tileRight * (mouseSquare.file + 1) + tileForward * (mouseSquare.rank + 1));
+            Debug.DrawLine(boardCorner + tileRight * mouseSquare.file + tileForward * mouseSquare.rank,
+                           boardCorner + tileRight * (mouseSquare.file + 1) + tileForward * (mouseSquare.rank + 1));
 
-            Debug.DrawLine(tileRight * mouseSquare.file + tileForward * (mouseSquare.rank + 1),
-                           tileRight * (mouseSquare.file + 1) + tileForward * mouseSquare.rank);
+            Debug.DrawLine(boardCorner + tileRight * mouseSquare.file + tileForward * (mouseSquare.rank + 1),
+                           boardCorner + tileRight * (mouseSquare.file + 1) + tileForward * mouseSquare.rank);
         }
-    }
-
-    private void Tests()
-    {
-        Move[] kasparov_vs_topalov = { new Move(Square.At(4, 1), Square.At(4, 3)), new Move(Square.At(3, 6), Square.At(3, 5)),
-                                       new Move(Square.At(3, 1), Square.At(3, 3)), new Move(Square.At(6, 7), Square.At(5, 5)),
-                                       new Move(Square.At(1, 0), Square.At(2, 2)), new Move(Square.At(6, 6), Square.At(6, 5)),
-                                       new Move(Square.At(2, 0), Square.At(4, 2)), new Move(Square.At(5, 7), Square.At(6, 6)),
-                                       new Move(Square.At(3, 0), Square.At(3, 1)), new Move(Square.At(2, 6), Square.At(2, 5)),
-                                       new Move(Square.At(5, 1), Square.At(5, 2)), new Move(Square.At(1, 6), Square.At(1, 4)),
-                                       new Move(Square.At(6, 0), Square.At(4, 1)), new Move(Square.At(1, 7), Square.At(3, 6)),
-                                       new Move(Square.At(4, 2), Square.At(7, 5)), new Move(Square.At(6, 6), Square.At(7, 5)), // First blood
-                                       new Move(Square.At(3, 1), Square.At(7, 5)), new Move(Square.At(2, 7), Square.At(1, 6)),
-                                       new Move(Square.At(0, 1), Square.At(0, 2)), new Move(Square.At(4, 6), Square.At(4, 4)),
-                                       new Move(Square.At(4, 0), Square.At(2, 0)), new Move(Square.At(3, 7), Square.At(4, 6)), // White castle
-                                       new Move(Square.At(2, 0), Square.At(1, 0)), new Move(Square.At(0, 6), Square.At(0, 5)),
-                                       new Move(Square.At(4, 1), Square.At(2, 0)), new Move(Square.At(4, 7), Square.At(2, 7)), // Black castle
-                                       new Move(Square.At(2, 0), Square.At(1, 2)), new Move(Square.At(4, 4), Square.At(3, 3)),
-                                       new Move(Square.At(3, 0), Square.At(3, 3)), new Move(Square.At(2, 5), Square.At(2, 4)),
-                                       new Move(Square.At(3, 3), Square.At(3, 0)), new Move(Square.At(3, 6), Square.At(1, 5)),
-                                       new Move(Square.At(6, 1), Square.At(6, 2)), new Move(Square.At(2, 7), Square.At(1, 7)),
-                                       new Move(Square.At(1, 2), Square.At(0, 4)), new Move(Square.At(1, 6), Square.At(0, 7)),
-                                       new Move(Square.At(5, 0), Square.At(7, 2)), new Move(Square.At(3, 5), Square.At(3, 4)),
-                                       new Move(Square.At(7, 5), Square.At(5, 3)), new Move(Square.At(1, 7), Square.At(0, 6)),
-                                       new Move(Square.At(7, 0), Square.At(4, 0)), new Move(Square.At(3, 4), Square.At(3, 3)),
-                                       new Move(Square.At(2, 2), Square.At(3, 4)), new Move(Square.At(1, 5), Square.At(3, 4)),
-                                       new Move(Square.At(4, 3), Square.At(3, 4)), new Move(Square.At(4, 6), Square.At(3, 5)),
-                                       new Move(Square.At(3, 0), Square.At(3, 3)), new Move(Square.At(2, 4), Square.At(3, 3)),
-                                       new Move(Square.At(4, 0), Square.At(4, 6)), new Move(Square.At(0, 6), Square.At(1, 5)),
-                                       new Move(Square.At(5, 3), Square.At(3, 3)), new Move(Square.At(1, 5), Square.At(0, 4)),
-                                       new Move(Square.At(1, 1), Square.At(1, 3)), new Move(Square.At(0, 4), Square.At(0, 3)),
-                                       new Move(Square.At(3, 3), Square.At(2, 2)), new Move(Square.At(3, 5), Square.At(3, 4)),
-                                       new Move(Square.At(4, 6), Square.At(0, 6)), new Move(Square.At(0, 7), Square.At(1, 6)),
-                                       new Move(Square.At(0, 6), Square.At(1, 6)), new Move(Square.At(3, 4), Square.At(2, 3)),
-                                       new Move(Square.At(2, 2), Square.At(5, 5)), new Move(Square.At(0, 3), Square.At(0, 2)),
-                                       new Move(Square.At(5, 5), Square.At(0, 5)), new Move(Square.At(0, 2), Square.At(1, 3)),
-                                       new Move(Square.At(2, 1), Square.At(2, 2)), new Move(Square.At(1, 3), Square.At(2, 2)),
-                                       new Move(Square.At(0, 5), Square.At(0, 0)), new Move(Square.At(2, 2), Square.At(3, 1)),
-                                       new Move(Square.At(0, 0), Square.At(1, 1)), new Move(Square.At(3, 1), Square.At(3, 0)),
-                                       new Move(Square.At(7, 2), Square.At(5, 0)), new Move(Square.At(3, 7), Square.At(3, 1)),
-                                       new Move(Square.At(1, 6), Square.At(3, 6)), new Move(Square.At(3, 1), Square.At(3, 6)),
-                                       new Move(Square.At(5, 0), Square.At(2, 3)), new Move(Square.At(1, 4), Square.At(2, 3)), // Black queen
-                                       new Move(Square.At(1, 1), Square.At(7, 7)), new Move(Square.At(3, 6), Square.At(3, 2)),
-                                       new Move(Square.At(7, 7), Square.At(0, 7)), new Move(Square.At(2, 3), Square.At(2, 2)),
-                                       new Move(Square.At(0, 7), Square.At(0, 3)), new Move(Square.At(3, 0), Square.At(4, 0)),
-                                       new Move(Square.At(5, 2), Square.At(5, 3)), new Move(Square.At(5, 6), Square.At(5, 4)),
-                                       new Move(Square.At(1, 0), Square.At(2, 0)), new Move(Square.At(3, 2), Square.At(3, 1)),
-                                       new Move(Square.At(0, 3), Square.At(0, 6)) };
-
-        for (int i = 0; i < 87; ++i)
-        {
-            Move m = kasparov_vs_topalov[i];
-            Debug.Assert(board.GetPiece(m.from) != null, i);
-            Debug.Assert(board.MakeMove(m), i);
-        }
-
-        board = new Board();
-
-        Move[] morphy_vs_allies = { new Move(Square.At(4, 1), Square.At(4, 3)), new Move(Square.At(4, 6), Square.At(4, 5)),
-                                    new Move(Square.At(3, 1), Square.At(3, 3)), new Move(Square.At(3, 6), Square.At(3, 4)),
-                                    new Move(Square.At(4, 3), Square.At(3, 4)), new Move(Square.At(4, 5), Square.At(3, 4)),
-                                    new Move(Square.At(6, 0), Square.At(5, 2)), new Move(Square.At(6, 7), Square.At(5, 5)),
-                                    new Move(Square.At(5, 0), Square.At(3, 2)), new Move(Square.At(5, 7), Square.At(3, 5)),
-                                    new Move(Square.At(4, 0), Square.At(6, 0)), new Move(Square.At(4, 7), Square.At(6, 7)), // Castles
-                                    new Move(Square.At(1, 0), Square.At(2, 2)), new Move(Square.At(2, 6), Square.At(2, 4)),
-                                    new Move(Square.At(3, 3), Square.At(2, 4)), new Move(Square.At(3, 5), Square.At(2, 4)),
-                                    new Move(Square.At(2, 0), Square.At(6, 4)), new Move(Square.At(2, 7), Square.At(4, 5)),
-                                    new Move(Square.At(3, 0), Square.At(3, 1)), new Move(Square.At(1, 7), Square.At(2, 5)),
-                                    new Move(Square.At(0, 0), Square.At(3, 0)), new Move(Square.At(2, 4), Square.At(4, 6)),
-                                    new Move(Square.At(5, 0), Square.At(4, 0)), new Move(Square.At(0, 6), Square.At(0, 5)),
-                                    new Move(Square.At(3, 1), Square.At(5, 3)), new Move(Square.At(5, 5), Square.At(7, 4)),
-                                    new Move(Square.At(5, 3), Square.At(7, 3)), new Move(Square.At(6, 6), Square.At(6, 5)),
-                                    new Move(Square.At(6, 1), Square.At(6, 3)), new Move(Square.At(7, 4), Square.At(5, 5)),
-                                    new Move(Square.At(7, 1), Square.At(7, 2)), new Move(Square.At(0, 7), Square.At(2, 7)),
-                                    new Move(Square.At(0, 1), Square.At(0, 2)), new Move(Square.At(5, 7), Square.At(4, 7)),
-                                    new Move(Square.At(2, 2), Square.At(4, 1)), new Move(Square.At(7, 6), Square.At(7, 4)),
-                                    new Move(Square.At(4, 1), Square.At(5, 3)), new Move(Square.At(5, 5), Square.At(7, 6)),
-                                    new Move(Square.At(5, 3), Square.At(4, 5)), new Move(Square.At(5, 6), Square.At(4, 5)),
-                                    new Move(Square.At(4, 0), Square.At(4, 5)), new Move(Square.At(4, 6), Square.At(6, 4)),
-                                    new Move(Square.At(4, 5), Square.At(6, 5)), new Move(Square.At(6, 7), Square.At(5, 7)),
-                                    new Move(Square.At(7, 3), Square.At(7, 4)), new Move(Square.At(2, 7), Square.At(2, 6)),
-                                    new Move(Square.At(5, 2), Square.At(6, 4)), new Move(Square.At(4, 7), Square.At(4, 6)),
-                                    new Move(Square.At(7, 4), Square.At(7, 5)), new Move(Square.At(5, 7), Square.At(4, 7)),
-                                    new Move(Square.At(6, 5), Square.At(6, 7)) };
-
-        for (int i = 0; i < 51; ++i)
-        {
-            Move m = morphy_vs_allies[i];
-            Debug.Assert(board.GetPiece(m.from) != null, i);
-            Debug.Assert(board.MakeMove(m), i);
-        }
-
-        board = new Board();
     }
 }
