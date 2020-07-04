@@ -16,7 +16,7 @@ public class Board
     private HashSet<Piece> hasMoved; // Contains only kings and rooks that have moved at least once
     private Pawn justDoubleStepped;
     
-    private Square needsPromotion;
+    public Square needsPromotion { get; private set; }
 
     public enum BoardStatus
     {

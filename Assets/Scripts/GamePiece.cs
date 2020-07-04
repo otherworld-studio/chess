@@ -1,10 +1,17 @@
 ﻿using System.Collections;
 using UnityEngine;
 
+using PieceType = Board.PieceType;
+
 // Attached to each piece prefab as a component
 public class GamePiece : MonoBehaviour
 {
-    public Renderer renderer;
+    [SerializeField]
+    private float yOffset = 0f;
+    [SerializeField]
+    private Renderer renderer;
+    [SerializeField]
+    private GameObject promoteMenu;
 
     private Color startColor;
 
@@ -39,7 +46,7 @@ public class GamePiece : MonoBehaviour
             StartCoroutine("PickUp");
         } else
         {
-            StartCoroutine("PutDown");
+            StartCoroutine("PutDown"); // TODO: only activate promoteMenu when coroutine is finished
         }
     }
 
@@ -49,7 +56,8 @@ public class GamePiece : MonoBehaviour
         Color oldColor = ghost.renderer.material.color;
         ghost.renderer.material.color = new Color(oldColor.r, oldColor.g, oldColor.b, ghostAlpha);
 
-        foreach (object nil in LerpCoroutine(Vector3.zero, height * GameManager.tileUp))
+        Vector3 start = Vector3.up * yOffset;
+        foreach (object nil in MovementCoroutine(start, start + height * GameManager.tileUp))
         {
             yield return null;
         }
@@ -60,13 +68,14 @@ public class GamePiece : MonoBehaviour
         Destroy(ghost.gameObject);
         ghost = null;
 
-        foreach (object nil in LerpCoroutine(height * GameManager.tileUp, Vector3.zero))
+        Vector3 start = Vector3.up * yOffset;
+        foreach (object nil in MovementCoroutine(start + height * GameManager.tileUp, start))
         {
             yield return null;
         }
     }
 
-    private IEnumerable LerpCoroutine(Vector3 start, Vector3 end)
+    private IEnumerable MovementCoroutine(Vector3 start, Vector3 end)
     {
         renderer.transform.localPosition = start;
         yield return null;
@@ -81,5 +90,17 @@ public class GamePiece : MonoBehaviour
         }
 
         renderer.transform.localPosition = end;
+    }
+
+    public void RequestPromotion()
+    {
+        Debug.Assert(promoteMenu != null);
+        promoteMenu.SetActive(true);
+    }
+
+    public void Promote(int type)
+    {
+        promoteMenu.SetActive(false);
+        GameManager.Promote((PieceType)type);
     }
 }

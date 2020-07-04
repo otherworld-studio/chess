@@ -26,12 +26,11 @@ public class GameManager : MonoBehaviour
     private List<GamePiece> piecePrefabs;
 
     [SerializeField]
-    private GameObject promoteMenu, gameOverMenu;
-    [SerializeField]
     private Text turnText, gameOverText, winnerText, debugText;
     [SerializeField]
-    private GameObject boardObject;
-    //TODO: rewrite transform code (piece prefabs & ghosts are instantiated as children of boardObject, etc.)
+    private GameObject boardObject, gameOverMenu;
+
+    private static GameManager instance = null; // singleton instance
 
     private Board board;
     private GamePiece[] gamePieces;
@@ -46,7 +45,7 @@ public class GameManager : MonoBehaviour
             if (_selectedSquare != null) // a piece was already selected
             {
                 GamePiece selectedPiece = Get(_selectedSquare);
-                selectedPiece.transform.position = GetSquareCenter(_selectedSquare); // If UpdateScene is called (on a successful move) this line won't matter anyway
+                selectedPiece.transform.position = GetSquareCenter(_selectedSquare); // If UpdateScene is called afterward (on a successful move) this line won't matter anyway
                 selectedPiece.Select(false);
             }
 
@@ -91,15 +90,13 @@ public class GameManager : MonoBehaviour
     public const float tileSize = 1.5f;
     public static readonly Vector3 tileRight = Vector3.right * tileSize, tileUp = Vector3.up * tileSize, tileForward = Vector3.forward * tileSize;
 
-    public static Vector3 boardCenter { get { return singletonInstance.boardObject.transform.position; } }
+    public static Vector3 boardCenter { get { return instance.boardObject.transform.position; } }
     public static Vector3 boardCorner { get { return boardCenter - 4 * (tileRight + tileForward); } }
-
-    private static GameManager singletonInstance = null;
 
     void Awake()
     {
-        Debug.Assert(singletonInstance == null);
-        singletonInstance = this;
+        Debug.Assert(instance == null);
+        instance = this;
 
         gamePieces = new GamePiece[64];
 
@@ -122,24 +119,20 @@ public class GameManager : MonoBehaviour
             else if (selectedSquare == null) // clicked on the board, but no previously selected square
             {
                 PieceData p = board.GetPiece(mouseSquare);
-                if (p != null && p.color == board.whoseTurn)
-                {
-                    if (Get(mouseSquare) == null) throw new System.Exception(); // DEBUG
-                    selectedSquare = mouseSquare; // only select if it's one of our pieces
-                }
+                if (p != null && p.color == board.whoseTurn) selectedSquare = mouseSquare; // only select if it's one of our pieces
             }
             else // the player has attempted to make a move
             {
                 bool success = board.MakeMove(new Move(selectedSquare, mouseSquare));
-                selectedSquare = null;
+                selectedSquare = null; // piece must be unselected before any calls to UpdateScene()
                 if (success)
                 {
-                    UpdateScene(); // selectedSquare must be set to null before UpdateScene()
+                    UpdateScene();
 
                     switch (board.status)
                     {
                         case BoardStatus.Promote:
-                            promoteMenu.SetActive(true);
+                            Get(board.needsPromotion).RequestPromotion();
                             break;
                         case BoardStatus.Checkmate:
                             gameOverText.text = "Checkmate!";
@@ -176,44 +169,43 @@ public class GameManager : MonoBehaviour
         gamePieces[8 * square.rank + square.file] = piece;
     }
 
-    public void Reset()
+    public static void Reset()
     {
-        board = new Board();
-        resigned = false;
+        instance.board = new Board();
+        instance.resigned = false;
         foreach (Square s in Square.squares)
         {
-            GamePiece g = Get(s);
+            GamePiece g = instance.Get(s);
             if (g != null) Destroy(g.gameObject);
 
-            PieceData p = board.GetPiece(s);
-            if (p != null) Spawn(p, s);
+            PieceData p = instance.board.GetPiece(s);
+            if (p != null) instance.Spawn(p, s);
         }
-        gameOverMenu.SetActive(false);
+        instance.gameOverMenu.SetActive(false);
     }
 
-    public void Promote(int type)
+    public static void Promote(PieceType type)
     {
-        Debug.Assert(board.Promote((PieceType)type));
-        UpdateScene();
-        promoteMenu.SetActive(false);
+        Debug.Assert(instance.board.Promote(type));
+        instance.UpdateScene();
     }
 
-    public void Resign(int player)
+    public static void Resign(int player)
     {
-        resigned = true;
+        instance.resigned = true;
         if ((PieceColor)player == PieceColor.White)
         {
-            gameOverText.text = "White resigns";
-            winnerText.text = "Black wins!";
-            winnerText.color = Color.black;
+            instance.gameOverText.text = "White resigns";
+            instance.winnerText.text = "Black wins!";
+            instance.winnerText.color = Color.black;
         }
         else
         {
-            gameOverText.text = "Black resigns";
-            winnerText.text = "White wins!";
-            winnerText.color = Color.white;
+            instance.gameOverText.text = "Black resigns";
+            instance.winnerText.text = "White wins!";
+            instance.winnerText.color = Color.white;
         }
-        gameOverMenu.SetActive(true);
+        instance.gameOverMenu.SetActive(true);
     }
 
     private void UpdateScene()
@@ -259,8 +251,6 @@ public class GameManager : MonoBehaviour
     private void Spawn(PieceData piece, Square square)
     {
         GamePiece p = Instantiate(piecePrefabs[(int)piece.type + 6 * (int)piece.color], GetSquareCenter(square), Quaternion.identity);
-        Color debug = p.renderer.material.color;
-        p.renderer.material.color = new Color(debug.r, debug.g, debug.b, 1.0f);
         Debug.Assert(p != null);
         Set(square, p);
     }
