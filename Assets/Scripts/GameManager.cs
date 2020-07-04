@@ -108,7 +108,7 @@ public class GameManager : MonoBehaviour
         if (board.status != BoardStatus.Playing || resigned) return;
 
         mouseSquare = GetMouseSquare();
-        Draw(); // DEBUG
+        DrawDebugLines(); // DEBUG
 
         if (Input.GetMouseButtonDown(0))
         {
@@ -186,7 +186,8 @@ public class GameManager : MonoBehaviour
 
     public static void Promote(PieceType type)
     {
-        Debug.Assert(instance.board.Promote(type));
+        bool success = instance.board.Promote(type);
+        Debug.Assert(success);
         instance.UpdateScene();
     }
 
@@ -274,7 +275,7 @@ public class GameManager : MonoBehaviour
         return boardCenter + tileRight * (square.file - 3.5f) + tileForward * (square.rank - 3.5f);
     }
 
-    private void Draw()
+    private void DrawDebugLines()
     {
         Vector3 start = boardCorner;
         Debug.DrawLine(start, start + tileRight * 8);

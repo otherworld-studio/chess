@@ -1,4 +1,6 @@
-﻿using System.Collections;
+﻿#pragma strict
+
+using System.Collections;
 using UnityEngine;
 
 using PieceType = Board.PieceType;
@@ -100,7 +102,7 @@ public class GamePiece : MonoBehaviour
 
     public void Promote(int type)
     {
-        promoteMenu.SetActive(false);
         GameManager.Promote((PieceType)type);
+        promoteMenu.SetActive(false);
     }
 }

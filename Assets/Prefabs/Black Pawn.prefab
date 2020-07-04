@@ -738,8 +738,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d8c285eb53c0eed48ad4d235f2e4b88f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  yOffset: 0
   renderer: {fileID: 8843173789705014235}
-  promoteMenu: {fileID: 0}
+  promoteMenu: {fileID: 645740777}
 --- !u!1 &8843173789702860475
 GameObject:
   m_ObjectHideFlags: 0
