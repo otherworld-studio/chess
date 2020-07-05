@@ -22,8 +22,8 @@ public class Board
         board = new Piece[64];
         hasMoved = new HashSet<Piece>();
 
-        _updates = new List<Move>();
         _moves = new Stack<Move>();
+        _updates = new List<Move>();
 
         for (int i = 0; i < 8; ++i)
         {
@@ -70,8 +70,8 @@ public class Board
         if (!IsLegalMove(move)) return false;
 
         _moves.Push(move);
-
         _updates = new List<Move>();
+
         justDoubleStepped = null;
 
         Piece p = Get(move.from);
