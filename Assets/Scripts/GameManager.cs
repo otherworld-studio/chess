@@ -11,9 +11,8 @@ using PieceData = Board.PieceData;
 using Move = Board.Move;
 
 // TODO:
-// promote menu (radial): https://answers.unity.com/questions/652859/how-can-i-make-my-gui-button-appear-above-my-click.html
-// also https://answers.unity.com/questions/1107023/trouble-positioning-ui-buttons-in-radial-menu-arou.html
 // improve piece highlighting: https://forum.unity.com/threads/solved-gameobject-picking-highlighting-and-outlining.40407/
+// animate promote buttons on piece placement
 // outline square on mouseover (color of outline can be dependent on piece conditions, e.g. legality)
 // additional Board draw conditions (threefold repetition, impossible endgame conditions, fifty moves, etc.)
 // online multiplayer
@@ -112,47 +111,52 @@ public class GameManager : MonoBehaviour
 
         if (Input.GetMouseButtonDown(0))
         {
-            if (mouseSquare == null) // clicked outside the board
+            if (mouseSquare != null)
             {
-                selectedSquare = null;
-            }
-            else if (selectedSquare == null) // clicked on the board, but no previously selected square
-            {
-                PieceData p = board.GetPiece(mouseSquare);
-                if (p != null && p.color == board.whoseTurn) selectedSquare = mouseSquare; // only select if it's one of our pieces
-            }
-            else // the player has attempted to make a move
-            {
-                bool success = board.MakeMove(new Move(selectedSquare, mouseSquare));
-                selectedSquare = null; // piece must be unselected before any calls to UpdateScene()
-                if (success)
+                if (selectedSquare == null) // clicked on the board, but no previously selected square
                 {
-                    UpdateScene();
-
-                    switch (board.status)
+                    PieceData p = board.GetPiece(mouseSquare);
+                    if (p != null && p.color == board.whoseTurn) selectedSquare = mouseSquare; // only select if it's one of our pieces
+                }
+                else if (mouseSquare == selectedSquare)
+                {
+                    selectedSquare = null;
+                }
+                else // the player has attempted to make a move
+                {
+                    Move move = new Move(selectedSquare, mouseSquare);
+                    if (board.IsLegalMove(move))
                     {
-                        case BoardStatus.Promote:
-                            Get(board.needsPromotion).RequestPromotion();
-                            break;
-                        case BoardStatus.Checkmate:
-                            gameOverText.text = "Checkmate!";
-                            if (board.whoseTurn == PieceColor.White)
-                            {
-                                winnerText.text = "White wins!";
-                                winnerText.color = Color.white;
-                            } else
-                            {
-                                winnerText.text = "Black wins!";
-                                winnerText.color = Color.black;
-                            }
-                            gameOverMenu.SetActive(true);
-                            break;
-                        case BoardStatus.Stalemate:
-                            gameOverText.text = "Stalemate!";
-                            winnerText.text = "Draw";
-                            winnerText.color = (board.whoseTurn == PieceColor.White) ? Color.white : Color.black;
-                            gameOverMenu.SetActive(true);
-                            break;
+                        board.MakeMove(move);
+                        selectedSquare = null; // piece must be unselected before any calls to UpdateScene()
+                        UpdateScene();
+                        switch (board.status)
+                        {
+                            case BoardStatus.Promote:
+                                Get(board.needsPromotion).RequestPromotion();
+                                break;
+                            case BoardStatus.Checkmate:
+                                gameOverText.text = "Checkmate!";
+                                if (board.whoseTurn == PieceColor.White)
+                                {
+                                    winnerText.text = "White wins!";
+                                    winnerText.color = Color.white;
+                                }
+                                else
+                                {
+                                    winnerText.text = "Black wins!";
+                                    winnerText.color = Color.black;
+                                }
+                                gameOverMenu.SetActive(true);
+                                break;
+                            case BoardStatus.Stalemate:
+                                gameOverText.text = "Stalemate!";
+                                winnerText.text = "Draw";
+                                winnerText.color = (board.whoseTurn == PieceColor.White) ? Color.white : Color.black;
+                                // TODO: disable HUDs
+                                gameOverMenu.SetActive(true);
+                                break;
+                        }
                     }
                 }
             }
@@ -169,21 +173,22 @@ public class GameManager : MonoBehaviour
         gamePieces[8 * square.rank + square.file] = piece;
     }
 
-    public static void Reset()
+    public void Reset()
     {
-        instance.board = new Board();
-        instance.resigned = false;
+        board = new Board();
+        resigned = false;
         foreach (Square s in Square.squares)
         {
-            GamePiece g = instance.Get(s);
+            GamePiece g = Get(s);
             if (g != null) Destroy(g.gameObject);
 
-            PieceData p = instance.board.GetPiece(s);
-            if (p != null) instance.Spawn(p, s);
+            PieceData p = board.GetPiece(s);
+            if (p != null) Spawn(p, s);
         }
-        instance.gameOverMenu.SetActive(false);
+        gameOverMenu.SetActive(false);
     }
 
+    // Static only because PromoteMenu doesn't exist in the scene until the game starts
     public static void Promote(PieceType type)
     {
         bool success = instance.board.Promote(type);
@@ -191,22 +196,23 @@ public class GameManager : MonoBehaviour
         instance.UpdateScene();
     }
 
-    public static void Resign(int player)
+    public void Resign(int player)
     {
-        instance.resigned = true;
+        resigned = true;
         if ((PieceColor)player == PieceColor.White)
         {
-            instance.gameOverText.text = "White resigns";
-            instance.winnerText.text = "Black wins!";
-            instance.winnerText.color = Color.black;
+            gameOverText.text = "White resigns";
+            winnerText.text = "Black wins!";
+            winnerText.color = Color.black;
         }
         else
         {
-            instance.gameOverText.text = "Black resigns";
-            instance.winnerText.text = "White wins!";
-            instance.winnerText.color = Color.white;
+            gameOverText.text = "Black resigns";
+            winnerText.text = "White wins!";
+            winnerText.color = Color.white;
         }
-        instance.gameOverMenu.SetActive(true);
+        // TODO: disable HUDs
+        gameOverMenu.SetActive(true);
     }
 
     private void UpdateScene()
