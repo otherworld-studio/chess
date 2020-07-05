@@ -15,6 +15,7 @@ public class GamePiece : MonoBehaviour
     private Color startColor;
 
     private GamePiece ghost;
+    private bool inMotion;
 
     private const float height = 2.3f; // Height of picked up pieces, in board tiles
     private const float speed = 10f; // Reciprocal of duration in seconds
@@ -42,40 +43,37 @@ public class GamePiece : MonoBehaviour
         StopAllCoroutines();
         if (value)
         {
-            StartCoroutine("PickUp");
+            ghost = Instantiate(this);
+            Color oldColor = ghost.renderer.material.color;
+            ghost.renderer.material.color = new Color(oldColor.r, oldColor.g, oldColor.b, ghostAlpha);
+
+            Vector3 start = Vector3.up * yOffset;
+            StartCoroutine(Move(start, start + height * GameManager.tileUp));
         } else
         {
-            StartCoroutine("PutDown"); // TODO: only activate promoteMenu when coroutine is finished
+            Destroy(ghost.gameObject);
+            ghost = null;
+
+            Vector3 start = Vector3.up * yOffset;
+            StartCoroutine(Move(start + height * GameManager.tileUp, start));
         }
     }
 
-    private IEnumerator PickUp()
+    public void RequestPromotion()
     {
-        ghost = Instantiate(this);
-        Color oldColor = ghost.renderer.material.color;
-        ghost.renderer.material.color = new Color(oldColor.r, oldColor.g, oldColor.b, ghostAlpha);
-
-        Vector3 start = Vector3.up * yOffset;
-        foreach (object nil in MoveVerticalCoroutine(start, start + height * GameManager.tileUp))
-        {
-            yield return null;
-        }
+        StartCoroutine(WaitForIdle());
     }
 
-    private IEnumerator PutDown()
+    // Called by UI buttons
+    public void Promote(int type)
     {
-        Destroy(ghost.gameObject);
-        ghost = null;
-
-        Vector3 start = Vector3.up * yOffset;
-        foreach (object nil in MoveVerticalCoroutine(start + height * GameManager.tileUp, start))
-        {
-            yield return null;
-        }
+        GameManager.Promote((PieceType)type);
+        promoteMenu.enabled = false;
     }
 
-    private IEnumerable MoveVerticalCoroutine(Vector3 start, Vector3 end)
+    private IEnumerator Move(Vector3 start, Vector3 end)
     {
+        inMotion = true;
         renderer.transform.localPosition = start;
         yield return null;
 
@@ -89,16 +87,13 @@ public class GamePiece : MonoBehaviour
         }
 
         renderer.transform.localPosition = end;
+        inMotion = false;
     }
 
-    public void RequestPromotion()
+    private IEnumerator WaitForIdle()
     {
+        while (inMotion) yield return new WaitForSeconds(0.1f);
+
         promoteMenu.enabled = true;
-    }
-
-    public void Promote(int type)
-    {
-        GameManager.Promote((PieceType)type);
-        promoteMenu.enabled = false;
     }
 }

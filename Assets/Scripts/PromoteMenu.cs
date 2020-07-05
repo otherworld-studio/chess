@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
 
+// We don't attach this to the actual Canvas because we disable it when not visible
 public class PromoteMenu : MonoBehaviour
 {
     [SerializeField]
@@ -8,16 +9,15 @@ public class PromoteMenu : MonoBehaviour
     [SerializeField]
     private Button knightButton, bishopButton, rookButton, queenButton;
 
-    private Collider collider;
-
-    void Awake()
-    {
-        collider = GetComponent<Collider>();
-    }
+    private const float buttonSize = 50f; // TODO: when we eventually make the icons grow to size, this is their final size
 
     void OnEnable()
     {
-        if (GetComponent<Renderer>().isVisible) canvas.SetActive(true);
+        if (GetComponent<Renderer>().isVisible)
+        {
+            canvas.SetActive(true);
+            Update(); // Update() isn't called automatically in the same frame, so we must do it ourselves
+        }
     }
 
     void OnDisable()
@@ -27,7 +27,11 @@ public class PromoteMenu : MonoBehaviour
 
     void OnBecameVisible()
     {
-        if (enabled) canvas.SetActive(true);
+        if (enabled)
+        {
+            canvas.SetActive(true);
+            Update();
+        }
     }
 
     void OnBecameInvisible()
@@ -37,20 +41,16 @@ public class PromoteMenu : MonoBehaviour
 
     void Update()
     {
-        Rect bounds = boundingBox2D;
-        // TODO: draw each button slightly outside of the bounding box, with a minimum distance from the center to prevent overlap
-        Vector2 centerPoint = RectTransformUtility.WorldToScreenPoint(Camera.main, collider.bounds.center);
-        knightButton.transform.position = centerPoint + new Vector2(radius, 0f);
-        bishopButton.transform.position = centerPoint + new Vector2(0f, -radius);
-        rookButton.transform.position = centerPoint + new Vector2(-radius, 0f);
-        queenButton.transform.position = centerPoint + new Vector2(0f, radius);
-    }
+        if (canvas.activeSelf) {
+            Rect bounds = boundingBox2D;
+            float w = buttonSize + bounds.width * 0.5f;
+            float h = buttonSize + bounds.height * 0.5f;
 
-    // TODO
-    private float CameraHeight()
-    {
-        float min = Camera.main.WorldToScreenPoint(collider.bounds.min).y, max = Camera.main.WorldToScreenPoint(collider.bounds.max).y;
-        return Mathf.Abs((max - min) / Camera.main.pixelHeight);
+            knightButton.transform.position = bounds.center + new Vector2(w, 0f);
+            bishopButton.transform.position = bounds.center + new Vector2(0f, -h);
+            rookButton.transform.position = bounds.center + new Vector2(-w, 0f);
+            queenButton.transform.position = bounds.center + new Vector2(0f, h);
+        }
     }
 
     private Rect boundingBox2D { get

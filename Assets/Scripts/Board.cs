@@ -3,8 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
-//TODO: consider making _movements a Queue<Move>
-
 public class Board
 {
     public BoardStatus status { get; private set; }
@@ -787,7 +785,7 @@ public class Board
             for (int i = 0; i < 2; ++i)
             {
                 Piece p = board.Get(rookSquares[i]);
-                if (p.type == PieceType.Rook && !board.hasMoved.Contains(p) && board.IsUnblockedPath(from, rookSquares[i]) && !board.IsCheckedSquare(from, opponent) && !board.IsCheckedSquare(newRookSquares[i], opponent))
+                if (p != null && p.type == PieceType.Rook && !board.hasMoved.Contains(p) && board.IsUnblockedPath(from, rookSquares[i]) && !board.IsCheckedSquare(from, opponent) && !board.IsCheckedSquare(newRookSquares[i], opponent))
                 {
                     yield return new Move(from, newKingSquares[i]);
                 }
