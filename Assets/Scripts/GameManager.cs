@@ -18,10 +18,7 @@ using Move = Board.Move;
 
 // After multiplayer:
 // draw by mutual agreement (GameManager)
-// additional Board draw conditions:
-//// threefold repetition: a player has the OPTION of claiming a draw if an identical position has occured at least three times during the course of the game with the same player to move each time (the third time CAN be the next position after this player makes their move, i.e. the player can claim the draw before actually making the move)
-//// fifty move rule: either player has the OPTION of claiming a draw if no capture or pawn movement in the last 50 moves (100 indivial player moves)
-//// dead position: (automatical draw) king vs king, king and bishop vs king, king and knight vs king, king and bishop vs king and same-color bishop; make an extra BoardStatus: DeadPosition
+// additional draw conditions (see Board)
 
 public class GameManager : MonoBehaviour
 {
@@ -151,10 +148,18 @@ public class GameManager : MonoBehaviour
                                     winnerText.text = "Black wins!";
                                     winnerText.color = Color.black;
                                 }
+                                // TODO: disable HUDs
                                 gameOverMenu.SetActive(true);
                                 break;
                             case BoardStatus.Stalemate:
                                 gameOverText.text = "Stalemate!";
+                                winnerText.text = "Draw";
+                                winnerText.color = (board.whoseTurn == PieceColor.White) ? Color.white : Color.black;
+                                // TODO: disable HUDs
+                                gameOverMenu.SetActive(true);
+                                break;
+                            case BoardStatus.InsufficientMaterial:
+                                gameOverText.text = "Insufficient material to force a checkmate!";
                                 winnerText.text = "Draw";
                                 winnerText.color = (board.whoseTurn == PieceColor.White) ? Color.white : Color.black;
                                 // TODO: disable HUDs

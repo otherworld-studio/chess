@@ -3,6 +3,9 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
+// TODO: threefold repetition: a player has the OPTION of claiming a draw if an identical position has occured at least three times during the course of the game with the same player to move each time (the third time CAN be the next position after this player makes their move, i.e. the player can claim the draw before actually making the move)
+// TODO: fifty move rule: either player has the OPTION of claiming a draw if no capture or pawn movement in the last 50 moves (100 indivial player moves)
+
 public class Board
 {
     public BoardStatus status { get; private set; }
@@ -27,25 +30,25 @@ public class Board
 
         for (int i = 0; i < 8; ++i)
         {
-            Piece.Spawn(PieceType.Pawn, PieceColor.White, Square.At(i, 1), this);
-            Piece.Spawn(PieceType.Pawn, PieceColor.Black, Square.At(i, 6), this);
+            Spawn(PieceType.Pawn, PieceColor.White, Square.At(i, 1));
+            Spawn(PieceType.Pawn, PieceColor.Black, Square.At(i, 6));
         }
-        Piece.Spawn(PieceType.Knight, PieceColor.White, Square.At(1, 0), this);
-        Piece.Spawn(PieceType.Knight, PieceColor.White, Square.At(6, 0), this);
-        Piece.Spawn(PieceType.Knight, PieceColor.Black, Square.At(1, 7), this);
-        Piece.Spawn(PieceType.Knight, PieceColor.Black, Square.At(6, 7), this);
-        Piece.Spawn(PieceType.Bishop, PieceColor.White, Square.At(2, 0), this);
-        Piece.Spawn(PieceType.Bishop, PieceColor.White, Square.At(5, 0), this);
-        Piece.Spawn(PieceType.Bishop, PieceColor.Black, Square.At(2, 7), this);
-        Piece.Spawn(PieceType.Bishop, PieceColor.Black, Square.At(5, 7), this);
-        Piece.Spawn(PieceType.Rook, PieceColor.White, Square.At(0, 0), this);
-        Piece.Spawn(PieceType.Rook, PieceColor.White, Square.At(7, 0), this);
-        Piece.Spawn(PieceType.Rook, PieceColor.Black, Square.At(0, 7), this);
-        Piece.Spawn(PieceType.Rook, PieceColor.Black, Square.At(7, 7), this);
-        Piece.Spawn(PieceType.Queen, PieceColor.White, Square.At(3, 0), this);
-        Piece.Spawn(PieceType.Queen, PieceColor.Black, Square.At(3, 7), this);
-        Piece.Spawn(PieceType.King, PieceColor.White, Square.At(4, 0), this);
-        Piece.Spawn(PieceType.King, PieceColor.Black, Square.At(4, 7), this);
+        Spawn(PieceType.Knight, PieceColor.White, Square.At(1, 0));
+        Spawn(PieceType.Knight, PieceColor.White, Square.At(6, 0));
+        Spawn(PieceType.Knight, PieceColor.Black, Square.At(1, 7));
+        Spawn(PieceType.Knight, PieceColor.Black, Square.At(6, 7));
+        Spawn(PieceType.Bishop, PieceColor.White, Square.At(2, 0));
+        Spawn(PieceType.Bishop, PieceColor.White, Square.At(5, 0));
+        Spawn(PieceType.Bishop, PieceColor.Black, Square.At(2, 7));
+        Spawn(PieceType.Bishop, PieceColor.Black, Square.At(5, 7));
+        Spawn(PieceType.Rook, PieceColor.White, Square.At(0, 0));
+        Spawn(PieceType.Rook, PieceColor.White, Square.At(7, 0));
+        Spawn(PieceType.Rook, PieceColor.Black, Square.At(0, 7));
+        Spawn(PieceType.Rook, PieceColor.Black, Square.At(7, 7));
+        Spawn(PieceType.Queen, PieceColor.White, Square.At(3, 0));
+        Spawn(PieceType.Queen, PieceColor.Black, Square.At(3, 7));
+        Spawn(PieceType.King, PieceColor.White, Square.At(4, 0));
+        Spawn(PieceType.King, PieceColor.Black, Square.At(4, 7));
     }
 
     public PieceData GetPiece(Square square)
@@ -54,14 +57,41 @@ public class Board
         return (p != null) ? new PieceData(p.type, p.color) : null;
     }
 
+    private Piece Get(Square square)
+    {
+        return board[square.rank * 8 + square.file];
+    }
+
     private void Put(Square square, Piece piece)
     {
         board[square.rank * 8 + square.file] = piece;
     }
 
-    private Piece Get(Square square)
+    private void Spawn(PieceType type, PieceColor color, Square square)
     {
-        return board[square.rank * 8 + square.file];
+        Piece p = null;
+        switch (type)
+        {
+            case PieceType.Pawn:
+                p = new Pawn(color);
+                break;
+            case PieceType.Knight:
+                p = new Knight(color);
+                break;
+            case PieceType.Bishop:
+                p = new Bishop(color);
+                break;
+            case PieceType.Rook:
+                p = new Rook(color);
+                break;
+            case PieceType.Queen:
+                p = new Queen(color);
+                break;
+            case PieceType.King:
+                p = new King(color);
+                break;
+        }
+        Put(square, p);
     }
 
     // Returns true iff the move is made successfully
@@ -92,6 +122,10 @@ public class Board
                 bool kingInCheck = KingInCheck();
                 whoseTurn = Opponent(whoseTurn); // turn should be the last player to move
                 status = (kingInCheck) ? BoardStatus.Checkmate : BoardStatus.Stalemate;
+            } else if (InsufficientMaterial())
+            {
+                whoseTurn = Opponent(whoseTurn);
+                status = BoardStatus.InsufficientMaterial;
             }
         }
 
@@ -102,7 +136,7 @@ public class Board
     {
         if (status != BoardStatus.Promote || type == PieceType.Pawn || type == PieceType.King) return false;
 
-        Piece.Spawn(type, Get(needsPromotion).color, needsPromotion, this);
+        Spawn(type, Get(needsPromotion).color, needsPromotion);
 
         Move lastMove = _moves.Pop();
         _moves.Push(new Move(lastMove.from, lastMove.to, type));
@@ -118,6 +152,10 @@ public class Board
             bool kingInCheck = KingInCheck();
             whoseTurn = Opponent(whoseTurn);
             status = (kingInCheck) ? BoardStatus.Checkmate : BoardStatus.Stalemate;
+        } else if (InsufficientMaterial())
+        {
+            whoseTurn = Opponent(whoseTurn);
+            status = BoardStatus.InsufficientMaterial;
         }
         else
         {
@@ -199,15 +237,42 @@ public class Board
         return false;
     }
 
-    // True iff all squares are empty between FROM and TO, NONINCLUSIVE. There must be a straight-line path between FROM and TO.
-    public bool IsUnblockedPath(Square from, Square to)
+    // True iff there is insufficient material for either player to FORCE a checkmate
+    private bool InsufficientMaterial()
     {
-        foreach (Square s in from.StraightLine(to))
+        Square whiteBishop = null, blackBishop = null;
+        int pieceCount = 0;
+        foreach (Square s in Square.squares)
         {
-            if (Get(s) != null) return false;
+            Piece p = Get(s);
+            if (p == null) continue;
+
+            ++pieceCount;
+            if (pieceCount > 4) return false;
+
+            if (p.type == PieceType.King) continue;
+
+            if (p.type != PieceType.Knight && p.type != PieceType.Bishop) return false;
+
+            if (p.type == PieceType.Bishop)
+            {
+                if (p.color == PieceColor.White)
+                {
+                    if (whiteBishop != null) return false;
+                    whiteBishop = s;
+                }
+                else
+                {
+                    if (blackBishop != null) return false;
+                    blackBishop = s;
+                }
+            }
         }
 
         return true;
+
+        // TODO: some scenarios (e.g. K + N vs. K + B) can lead to a forced checkmate depending on the starting position
+        // If a timer is ever implemented, we could just let the game continue unless checkmate really is impossible
     }
 
     public IEnumerable<Move> legalMoves
@@ -227,12 +292,24 @@ public class Board
         }
     }
 
+    // True iff all squares are empty between FROM and TO, NONINCLUSIVE. There must be a straight-line path between FROM and TO.
+    public bool IsUnblockedPath(Square from, Square to)
+    {
+        foreach (Square s in from.StraightLine(to))
+        {
+            if (Get(s) != null) return false;
+        }
+
+        return true;
+    }
+
     public enum BoardStatus
     {
         Playing, // waiting on a player to make a move
         Promote, // waiting on a player to choose a new piece to replace a pawn that has reached the end of the board
         Checkmate, // self-explanatory
-        Stalemate // etc.
+        Stalemate,
+        InsufficientMaterial
     }
 
     //Don't make this a struct (we want singletons with nullability - better suited as a class)
@@ -417,33 +494,6 @@ public class Board
 
         // Assumes the move FROM -> TO is legal, and that promotion != PieceType.King
         public virtual void PreMove(Move move, Board board) { return; }
-
-        public static void Spawn(PieceType type, PieceColor color, Square square, Board board)
-        {
-            Piece p = null;
-            switch(type)
-            {
-                case PieceType.Pawn:
-                    p = new Pawn(color);
-                    break;
-                case PieceType.Knight:
-                    p = new Knight(color);
-                    break;
-                case PieceType.Bishop:
-                    p = new Bishop(color);
-                    break;
-                case PieceType.Rook:
-                    p = new Rook(color);
-                    break;
-                case PieceType.Queen:
-                    p = new Queen(color);
-                    break;
-                case PieceType.King:
-                    p = new King(color);
-                    break;
-            }
-            board.Put(square, p);
-        }
     }
 
     private class Pawn : Piece
@@ -554,7 +604,7 @@ public class Board
                     board.needsPromotion = move.to; // Delay piece selection
                 } else
                 {
-                    Spawn(move.promotion, color, move.from, board);
+                    board.Spawn(move.promotion, color, move.from);
                 }
                 
             }
