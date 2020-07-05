@@ -7,29 +7,23 @@ public class Board
 {
     public BoardStatus status { get; private set; }
     public PieceColor whoseTurn { get; private set; }
-    public List<Move> movements { get { return new List<Move>(_movements); } }
-    private List<Move> _movements;
-
+    public Square needsPromotion { get; private set; }
+    private Stack<Move> _moves;
+    public Stack<Move> moves { get { return new Stack<Move>(_moves); } }
+    private List<Move> _updates;
+    public List<Move> updates { get { return new List<Move>(_updates); } }
+    
     private Piece[] board;
     private HashSet<Piece> hasMoved; // Contains only kings and rooks that have moved at least once
     private Pawn justDoubleStepped;
-    
-    public Square needsPromotion { get; private set; }
-
-    public enum BoardStatus
-    {
-        Playing, // waiting on a player to make a move
-        Promote, // waiting on a player to choose a new piece to replace a pawn that has reached the end of the board
-        Checkmate, // self-explanatory
-        Stalemate // etc.
-    }
 
     public Board()
     {
         board = new Piece[64];
         hasMoved = new HashSet<Piece>();
 
-        _movements = new List<Move>();
+        _moves = new Stack<Move>();
+        _updates = new List<Move>();
 
         for (int i = 0; i < 8; ++i)
         {
@@ -75,7 +69,9 @@ public class Board
     {
         if (!IsLegalMove(move)) return false;
 
-        _movements = new List<Move>();
+        _moves.Push(move);
+        _updates = new List<Move>();
+
         justDoubleStepped = null;
 
         Piece p = Get(move.from);
@@ -83,7 +79,7 @@ public class Board
         Put(move.from, null);
         Put(move.to, p);
 
-        _movements.Add(move);
+        _updates.Add(move);
 
         if (needsPromotion != null)
         {
@@ -108,8 +104,11 @@ public class Board
 
         Piece.Spawn(type, Get(needsPromotion).color, needsPromotion, this);
 
-        _movements = new List<Move>();
-        _movements.Add(new Move(needsPromotion, needsPromotion, type));
+        Move lastMove = _moves.Pop();
+        _moves.Push(new Move(lastMove.from, lastMove.to, type));
+
+        _updates = new List<Move>();
+        _updates.Add(new Move(needsPromotion, needsPromotion, type));
 
         needsPromotion = null;
 
@@ -146,7 +145,8 @@ public class Board
         Array.Copy(board, boardCopy, 64);
         HashSet<Piece> hasMovedCopy = new HashSet<Piece>(hasMoved);
         Pawn justDoubleSteppedCopy = justDoubleStepped;
-        List<Move> movementsCopy = new List<Move>(_movements);
+        Square needsPromotionCopy = needsPromotion;
+        List<Move> movementsCopy = new List<Move>(_updates);
         
         Piece p = Get(move.from);
         p.PreMove(move, this); // Tells the piece to do extra things if necessary (e.g. update variables, take a pawn via en passant, move a rook via castling)
@@ -158,7 +158,8 @@ public class Board
         board = boardCopy;
         hasMoved = hasMovedCopy;
         justDoubleStepped = justDoubleSteppedCopy;
-        _movements = movementsCopy;
+        needsPromotion = needsPromotionCopy;
+        _updates = movementsCopy;
 
         return !kingInCheck;
     }
@@ -209,19 +210,6 @@ public class Board
         return true;
     }
 
-    public struct Move
-    {
-        public readonly Square from, to;
-        public readonly PieceType promotion;
-
-        public Move(Square _from, Square _to, PieceType _promotion = PieceType.Pawn)
-        {
-            from = _from;
-            to = _to;
-            promotion = _promotion;
-        }
-    }
-
     public IEnumerable<Move> legalMoves
     {
         get
@@ -237,6 +225,14 @@ public class Board
                 }
             }
         }
+    }
+
+    public enum BoardStatus
+    {
+        Playing, // waiting on a player to make a move
+        Promote, // waiting on a player to choose a new piece to replace a pawn that has reached the end of the board
+        Checkmate, // self-explanatory
+        Stalemate // etc.
     }
 
     //Don't make this a struct (we want singletons with nullability - better suited as a class)
@@ -383,6 +379,19 @@ public class Board
         {
             type = _type;
             color = _color;
+        }
+    }
+
+    public struct Move
+    {
+        public readonly Square from, to;
+        public readonly PieceType promotion;
+
+        public Move(Square _from, Square _to, PieceType _promotion = PieceType.Pawn)
+        {
+            from = _from;
+            to = _to;
+            promotion = _promotion;
         }
     }
 
@@ -536,7 +545,7 @@ public class Board
             {
                 Square enPassantSquare = Square.At(move.to.file, move.from.rank);
                 board.Put(enPassantSquare, null);
-                board._movements.Add(new Move(enPassantSquare, null));
+                board._updates.Add(new Move(enPassantSquare, null));
             }
             else if (move.to.rank == 7 || move.to.rank == 0)
             {
@@ -814,7 +823,7 @@ public class Board
                 board.Put(newRookSquare, board.Get(rookSquare));
                 board.Put(rookSquare, null);
 
-                board._movements.Add(new Move(rookSquare, newRookSquare));
+                board._updates.Add(new Move(rookSquare, newRookSquare));
             }
         }
     }

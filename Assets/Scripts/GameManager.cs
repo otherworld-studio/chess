@@ -7,17 +7,21 @@ using Square = Board.Square;
 using PieceType = Board.PieceType;
 using PieceColor = Board.PieceColor;
 using PieceData = Board.PieceData;
-
 using Move = Board.Move;
 
 // TODO:
 // improve piece highlighting: https://forum.unity.com/threads/solved-gameobject-picking-highlighting-and-outlining.40407/
-// animate promote buttons on piece placement
 // outline square on mouseover (color of outline can be dependent on piece conditions, e.g. legality)
-// additional Board draw conditions (threefold repetition, impossible endgame conditions, fifty moves, etc.)
-// online multiplayer
-// draw by mutual agreement (GameManager)
 // show pieces that have been taken on the side of the board
+// AI
+// online multiplayer
+
+// After multiplayer:
+// draw by mutual agreement (GameManager)
+// additional Board draw conditions:
+//// threefold repetition: a player has the OPTION of claiming a draw if an identical position has occured at least three times during the course of the game with the same player to move each time (the third time CAN be the next position after this player makes their move, i.e. the player can claim the draw before actually making the move)
+//// fifty move rule: either player has the OPTION of claiming a draw if no capture or pawn movement in the last 50 moves (100 indivial player moves)
+//// dead position: (automatical draw) king vs king, king and bishop vs king, king and knight vs king, king and bishop vs king and same-color bishop; make an extra BoardStatus: DeadPosition
 
 public class GameManager : MonoBehaviour
 {
@@ -228,7 +232,7 @@ public class GameManager : MonoBehaviour
         }
 
         // Handle castles and en passants
-        foreach (Move m in board.movements)
+        foreach (Move m in board.updates)
         {
             GamePiece g = Get(m.from);
             if (m.to == m.from) {

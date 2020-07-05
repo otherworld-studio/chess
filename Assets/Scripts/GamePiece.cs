@@ -1,8 +1,6 @@
 ﻿using System.Collections;
 using UnityEngine;
 
-using PieceType = Board.PieceType;
-
 public class GamePiece : MonoBehaviour
 {
     [SerializeField]
@@ -67,17 +65,15 @@ public class GamePiece : MonoBehaviour
     // Called by UI buttons
     public void Promote(int type)
     {
-        GameManager.Promote((PieceType)type);
+        GameManager.Promote((Board.PieceType)type);
         promoteMenu.enabled = false;
     }
 
     private IEnumerator Move(Vector3 start, Vector3 end)
     {
         inMotion = true;
-        renderer.transform.localPosition = start;
-        yield return null;
 
-        float t = Time.deltaTime * speed;
+        float t = 0f;
         while (t < 1f)
         {
             renderer.transform.localPosition = Vector3.Lerp(start, end, t);
@@ -87,6 +83,7 @@ public class GamePiece : MonoBehaviour
         }
 
         renderer.transform.localPosition = end;
+
         inMotion = false;
     }
 
