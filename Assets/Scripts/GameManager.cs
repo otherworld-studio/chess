@@ -10,8 +10,9 @@ using PieceData = Board.PieceData;
 using Move = Board.Move;
 
 // TODO:
+// optimize promoteMenu calculations -- looping through all vertices every frame == :(
+// animate rook
 // improve piece highlighting: https://forum.unity.com/threads/solved-gameobject-picking-highlighting-and-outlining.40407/
-// outline square on mouseover (color of outline can be dependent on piece conditions, e.g. legality)
 // show pieces that have been taken on the side of the board
 // AI
 // online multiplayer
@@ -24,6 +25,8 @@ public class GameManager : MonoBehaviour
 {
     [SerializeField]
     private List<GamePiece> piecePrefabs;
+    [SerializeField]
+    private GameObject highlightPrefab;
 
     [SerializeField]
     private Text turnText, gameOverText, winnerText, debugText;
@@ -34,6 +37,7 @@ public class GameManager : MonoBehaviour
 
     private Board board;
     private GamePiece[] gamePieces;
+    private GameObject[] highlights;
     private bool resigned;
 
     private Square _selectedSquare;
@@ -69,29 +73,37 @@ public class GameManager : MonoBehaviour
             
             if (_mouseSquare != null)
             {
+                Highlight(_mouseSquare, false);
                 GamePiece mousePiece = Get(_mouseSquare);
-                if (mousePiece != null) mousePiece.Highlight(false);
+                if (mousePiece != null)
+                    mousePiece.Highlight(false);
             }
 
             _mouseSquare = value;
             if (_mouseSquare != null)
             {
-                if (_selectedSquare != null) Get(_selectedSquare).transform.position = GetSquareCenter(_mouseSquare);
+                Highlight(_mouseSquare, true);
+
+                if (_selectedSquare != null)
+                    Get(_selectedSquare).transform.position = GetSquareCenter(_mouseSquare);
 
                 if (_mouseSquare != _selectedSquare)
                 {
                     GamePiece mousePiece = Get(_mouseSquare);
-                    if (mousePiece != null) mousePiece.Highlight(true);
+                    if (mousePiece != null)
+                        mousePiece.Highlight(true);
                 }
             }
         }
     }
 
-    public const float tileSize = 1.5f;
+    public const float tileSize = 1.5f; // Make sure this matches highlightPrefab.localScale
     public static readonly Vector3 tileRight = Vector3.right * tileSize, tileUp = Vector3.up * tileSize, tileForward = Vector3.forward * tileSize;
 
     public static Vector3 boardCenter { get { return instance.boardObject.transform.position; } }
     public static Vector3 boardCorner { get { return boardCenter - 4 * (tileRight + tileForward); } }
+
+    private const float highlightHeight = 0.01f;
 
     void Awake()
     {
@@ -99,13 +111,20 @@ public class GameManager : MonoBehaviour
         instance = this;
 
         gamePieces = new GamePiece[64];
+        highlights = new GameObject[64];
+        foreach (Square s in Square.squares)
+        {
+            GameObject highlight = Instantiate(highlightPrefab, GetSquareCenter(s) + highlightHeight * tileUp, Quaternion.Euler(90f * Vector3.right), boardObject.transform);
+            highlights[8 * s.rank + s.file] = highlight;
 
+        }
         Reset();
     }
 
     void Update()
     {
-        if (board.status != BoardStatus.Playing || resigned) return;
+        if (board.status != BoardStatus.Playing || resigned)
+            return;
 
         mouseSquare = GetMouseSquare();
         DrawDebugLines(); // DEBUG
@@ -117,7 +136,8 @@ public class GameManager : MonoBehaviour
                 if (selectedSquare == null) // clicked on the board, but no previously selected square
                 {
                     PieceData p = board.GetPiece(mouseSquare);
-                    if (p != null && p.color == board.whoseTurn) selectedSquare = mouseSquare; // only select if it's one of our pieces
+                    if (p != null && p.color == board.whoseTurn)
+                        selectedSquare = mouseSquare; // only select if it's one of our pieces
                 }
                 else if (mouseSquare == selectedSquare)
                 {
@@ -189,10 +209,12 @@ public class GameManager : MonoBehaviour
         foreach (Square s in Square.squares)
         {
             GamePiece g = Get(s);
-            if (g != null) Destroy(g.gameObject);
+            if (g != null)
+                Destroy(g.gameObject);
 
             PieceData p = board.GetPiece(s);
-            if (p != null) Spawn(p, s);
+            if (p != null)
+                Spawn(p, s);
         }
         gameOverMenu.SetActive(false);
     }
@@ -251,7 +273,8 @@ public class GameManager : MonoBehaviour
                 if (m.to != null)
                 {
                     GamePiece h = Get(m.to);
-                    if (h != null) Destroy(h.gameObject);
+                    if (h != null)
+                        Destroy(h.gameObject);
 
                     Set(m.to, g);
                     g.transform.position = GetSquareCenter(m.to);
@@ -271,9 +294,18 @@ public class GameManager : MonoBehaviour
         Set(square, p);
     }
 
+    private void Highlight(Square square, bool value)
+    {
+        GameObject highlight = highlights[8 * square.rank + square.file];
+        Renderer renderer = highlight.GetComponent<Renderer>();
+        renderer.material.color = Color.yellow; // TODO: make color indicate IsLegalMove(selectedSquare, square)
+        highlight.SetActive(value);
+    }
+
     private Square GetMouseSquare()
     {
-        if (!Camera.main) return null;
+        if (!Camera.main)
+            return null;
 
         RaycastHit hit;
         if (Physics.Raycast(Camera.main.ScreenPointToRay(Input.mousePosition), out hit, 25.0f, LayerMask.GetMask("Board")))
@@ -284,6 +316,13 @@ public class GameManager : MonoBehaviour
 
         return null;
     }
+
+    /*
+    private Vector3 GetSquareCenter(Square square, bool local = false)
+    {
+        return (local) ? tileRight * (square.file + 0.5f) + tileForward * (square.rank + 0.5f) : boardCenter + tileRight * (square.file - 3.5f) + tileForward * (square.rank - 3.5f);
+    }
+    */
 
     private Vector3 GetSquareCenter(Square square)
     {

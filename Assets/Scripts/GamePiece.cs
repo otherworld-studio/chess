@@ -13,7 +13,6 @@ public class GamePiece : MonoBehaviour
     private Color startColor;
 
     private GamePiece ghost;
-    private bool inMotion;
 
     private const float height = 2.3f; // Height of picked up pieces, in board tiles
     private const float speed = 10f; // Reciprocal of duration in seconds
@@ -38,7 +37,8 @@ public class GamePiece : MonoBehaviour
 
     public void Select(bool value)
     {
-        StopAllCoroutines();
+        if (moveCoroutine != null)
+            StopCoroutine(moveCoroutine);
         if (value)
         {
             ghost = Instantiate(this);
@@ -46,14 +46,14 @@ public class GamePiece : MonoBehaviour
             ghost.renderer.material.color = new Color(oldColor.r, oldColor.g, oldColor.b, ghostAlpha);
 
             Vector3 start = Vector3.up * yOffset;
-            StartCoroutine(Move(start, start + height * GameManager.tileUp));
+            moveCoroutine = StartCoroutine(MoveRoutine(start, start + height * GameManager.tileUp));
         } else
         {
             Destroy(ghost.gameObject);
             ghost = null;
 
             Vector3 start = Vector3.up * yOffset;
-            StartCoroutine(Move(start + height * GameManager.tileUp, start));
+            moveCoroutine = StartCoroutine(MoveRoutine(start + height * GameManager.tileUp, start));
         }
     }
 
@@ -69,10 +69,9 @@ public class GamePiece : MonoBehaviour
         promoteMenu.enabled = false;
     }
 
-    private IEnumerator Move(Vector3 start, Vector3 end)
+    private Coroutine moveCoroutine;
+    private IEnumerator MoveRoutine(Vector3 start, Vector3 end)
     {
-        inMotion = true;
-
         float t = 0f;
         while (t < 1f)
         {
@@ -84,12 +83,13 @@ public class GamePiece : MonoBehaviour
 
         renderer.transform.localPosition = end;
 
-        inMotion = false;
+        moveCoroutine = null;
     }
 
     private IEnumerator WaitForIdle()
     {
-        while (inMotion) yield return new WaitForSeconds(0.1f);
+        while (moveCoroutine != null)
+            yield return new WaitForSeconds(0.1f);
 
         promoteMenu.enabled = true;
     }

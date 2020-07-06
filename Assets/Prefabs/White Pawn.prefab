@@ -1135,7 +1135,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   canvas: {fileID: 4196744459416704752}
-  knightButton: {fileID: 1316216000}
-  bishopButton: {fileID: 662514083}
-  rookButton: {fileID: 337271979}
-  queenButton: {fileID: 1291538078}
+  knightButton: {fileID: 1316215999}
+  bishopButton: {fileID: 662514082}
+  rookButton: {fileID: 337271978}
+  queenButton: {fileID: 1291538077}
