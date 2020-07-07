@@ -13,8 +13,7 @@ public class Board
     public Square needsPromotion { get; private set; }
     private Stack<Move> _moves;
     public Stack<Move> moves { get { return new Stack<Move>(_moves); } }
-    private List<Move> _updates;
-    public List<Move> updates { get { return new List<Move>(_updates); } }
+    public Move? sideEffect { get; private set; } // stores castling/en passant info during the latest move
     
     private Piece[] board;
     private HashSet<Piece> hasMoved; // Contains only kings and rooks that have moved at least once
@@ -26,7 +25,6 @@ public class Board
         hasMoved = new HashSet<Piece>();
 
         _moves = new Stack<Move>();
-        _updates = new List<Move>();
 
         for (int i = 0; i < 8; ++i)
         {
@@ -51,10 +49,10 @@ public class Board
         Spawn(PieceType.King, PieceColor.Black, Square.At(4, 7));
     }
 
-    public PieceData GetPiece(Square square)
+    public PieceData? GetPiece(Square square)
     {
         Piece p = Get(square);
-        return (p != null) ? new PieceData(p.type, p.color) : null;
+        return (p != null) ? new PieceData(p.type, p.color) : (PieceData?)null;
     }
 
     private Piece Get(Square square)
@@ -101,7 +99,7 @@ public class Board
             return false;
 
         _moves.Push(move);
-        _updates = new List<Move>();
+        sideEffect = null;
 
         justDoubleStepped = null;
 
@@ -109,8 +107,6 @@ public class Board
         p.PreMove(move, this); // Extra operations (e.g. take a pawn via en passant, move a rook via castling)
         Put(move.from, null);
         Put(move.to, p);
-
-        _updates.Add(move);
 
         if (needsPromotion != null)
         {
@@ -142,9 +138,6 @@ public class Board
 
         Move lastMove = _moves.Pop();
         _moves.Push(new Move(lastMove.from, lastMove.to, type));
-
-        _updates = new List<Move>();
-        _updates.Add(new Move(needsPromotion, needsPromotion, type));
 
         needsPromotion = null;
 
@@ -188,7 +181,7 @@ public class Board
         HashSet<Piece> hasMovedCopy = new HashSet<Piece>(hasMoved);
         Pawn justDoubleSteppedCopy = justDoubleStepped;
         Square needsPromotionCopy = needsPromotion;
-        List<Move> movementsCopy = new List<Move>(_updates);
+        Move? sideEffectCopy = sideEffect;
         
         Piece p = Get(move.from);
         p.PreMove(move, this); // Tells the piece to do extra things if necessary (e.g. update variables, take a pawn via en passant, move a rook via castling)
@@ -201,7 +194,7 @@ public class Board
         hasMoved = hasMovedCopy;
         justDoubleStepped = justDoubleSteppedCopy;
         needsPromotion = needsPromotionCopy;
-        _updates = movementsCopy;
+        sideEffect = sideEffectCopy;
 
         return !kingInCheck;
     }
@@ -455,7 +448,7 @@ public class Board
         return (color == PieceColor.White) ? PieceColor.Black : PieceColor.White;
     }
 
-    public class PieceData
+    public struct PieceData
     {
         public readonly PieceType type;
         public readonly PieceColor color;
@@ -615,7 +608,7 @@ public class Board
             {
                 Square enPassantSquare = Square.At(move.to.file, move.from.rank);
                 board.Put(enPassantSquare, null);
-                board._updates.Add(new Move(enPassantSquare, null));
+                board.sideEffect = new Move(enPassantSquare, null);
             }
             else if (move.to.rank == 7 || move.to.rank == 0)
             {
@@ -623,7 +616,6 @@ public class Board
                     board.needsPromotion = move.to; // Delay piece selection
                 else
                     board.Spawn(move.promotion, color, move.from);
-                
             }
         }
     }
@@ -901,7 +893,7 @@ public class Board
                 board.Put(newRookSquare, board.Get(rookSquare));
                 board.Put(rookSquare, null);
 
-                board._updates.Add(new Move(rookSquare, newRookSquare));
+                board.sideEffect = new Move(rookSquare, newRookSquare);
             }
         }
     }
