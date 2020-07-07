@@ -37,23 +37,25 @@ public class GamePiece : MonoBehaviour
 
     public void Select(bool value)
     {
-        if (moveCoroutine != null)
-            StopCoroutine(moveCoroutine);
+        StopAllCoroutines();
+        globalTranslationCoroutine = null;
+        moveCoroutine = null;
+
+        Vector3 grounded = new Vector3(0f, yOffset, 0f);
+        Vector3 raised = grounded + height * GameManager.tileUp;
         if (value)
         {
             ghost = Instantiate(this);
             Color oldColor = ghost.renderer.material.color;
             ghost.renderer.material.color = new Color(oldColor.r, oldColor.g, oldColor.b, ghostAlpha);
 
-            Vector3 start = new Vector3(0f, yOffset, 0f);
-            moveCoroutine = StartCoroutine(MoveRoutine(start, start + height * GameManager.tileUp));
+            localTranslationCoroutine = StartCoroutine(LocalTranslationRoutine(grounded, raised));
         } else
         {
             Destroy(ghost.gameObject);
             ghost = null;
 
-            Vector3 start = new Vector3(0f, yOffset, 0f);
-            moveCoroutine = StartCoroutine(MoveRoutine(start + height * GameManager.tileUp, start));
+            localTranslationCoroutine = StartCoroutine(LocalTranslationRoutine(raised, grounded));
         }
     }
 
@@ -69,28 +71,68 @@ public class GamePiece : MonoBehaviour
         promoteMenu.enabled = false;
     }
 
-    private Coroutine moveCoroutine;
-    private IEnumerator MoveRoutine(Vector3 start, Vector3 end)
+    private Coroutine localTranslationCoroutine;
+    private IEnumerator LocalTranslationRoutine(Vector3 from, Vector3 to)
     {
         float t = 0f;
         while (t < 1f)
         {
-            renderer.transform.localPosition = Vector3.Lerp(start, end, t);
+            renderer.transform.localPosition = Vector3.Lerp(from, to, t);
             yield return null;
 
             t += Time.deltaTime * speed;
         }
 
-        renderer.transform.localPosition = end;
+        renderer.transform.localPosition = to;
 
-        moveCoroutine = null;
+        localTranslationCoroutine = null;
+    }
+
+    private Coroutine globalTranslationCoroutine;
+    private IEnumerator GlobalTranslationRoutine(Vector3 from, Vector3 to)
+    {
+        float t = 0f;
+        while (t < 1f)
+        {
+            transform.position = Vector3.Lerp(from, to, t);
+            yield return null;
+
+            t += Time.deltaTime * speed;
+        }
+
+        transform.position = to;
+
+        globalTranslationCoroutine = null;
     }
 
     private IEnumerator WaitForIdle()
     {
-        while (moveCoroutine != null)
+        while (localTranslationCoroutine != null)
             yield return new WaitForSeconds(0.1f);
 
         promoteMenu.enabled = true;
+    }
+
+    public void Move(Vector3 from, Vector3 to)
+    {
+        moveCoroutine = StartCoroutine(MoveRoutine(from, to));
+    }
+
+    private Coroutine moveCoroutine;
+    private IEnumerator MoveRoutine(Vector3 from, Vector3 to)
+    {
+        Vector3 grounded = new Vector3(0f, yOffset, 0f);
+        Vector3 raised = grounded + height * GameManager.tileUp;
+
+        localTranslationCoroutine = StartCoroutine(LocalTranslationRoutine(grounded, raised));
+        yield return localTranslationCoroutine;
+
+        globalTranslationCoroutine = StartCoroutine(GlobalTranslationRoutine(from, to));
+        yield return globalTranslationCoroutine;
+
+        localTranslationCoroutine = StartCoroutine(LocalTranslationRoutine(raised, grounded));
+        yield return localTranslationCoroutine;
+
+        moveCoroutine = null;
     }
 }

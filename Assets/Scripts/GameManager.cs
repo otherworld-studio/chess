@@ -10,8 +10,7 @@ using PieceData = Board.PieceData;
 using Move = Board.Move;
 
 // TODO:
-// make square highlighter's material transparent
-// animate rook
+// promote menu still jerks slightly when you cross the plane
 // improve piece highlighting: https://forum.unity.com/threads/solved-gameobject-picking-highlighting-and-outlining.40407/
 // show pieces that have been taken on the side of the board
 // AI opponent
@@ -40,12 +39,12 @@ public class GameManager : MonoBehaviour
     private GameObject[] highlights;
     private bool resigned;
 
+    private List<GameObject> highlighted; // TODO: assist mode?
+
     private Square _selectedSquare;
     private Square selectedSquare {
         get { return _selectedSquare; }
         set {
-            if (value == _selectedSquare) return;
-
             if (_selectedSquare != null) // a piece was already selected
             {
                 GamePiece selectedPiece = Get(_selectedSquare);
@@ -69,11 +68,9 @@ public class GameManager : MonoBehaviour
         get { return _mouseSquare; }
         set
         {
-            if (value == _mouseSquare) return;
-            
             if (_mouseSquare != null)
             {
-                Highlight(_mouseSquare, false);
+                Highlight(_mouseSquare, null);
                 GamePiece mousePiece = Get(_mouseSquare);
                 if (mousePiece != null)
                     mousePiece.Highlight(false);
@@ -82,17 +79,22 @@ public class GameManager : MonoBehaviour
             _mouseSquare = value;
             if (_mouseSquare != null)
             {
-                Highlight(_mouseSquare, true);
+                Color color = mouseColor;
 
                 if (_selectedSquare != null)
-                    Get(_selectedSquare).transform.position = GetSquareCenter(_mouseSquare);
-
-                if (_mouseSquare != _selectedSquare)
                 {
-                    GamePiece mousePiece = Get(_mouseSquare);
-                    if (mousePiece != null)
-                        mousePiece.Highlight(true);
+                    Get(_selectedSquare).transform.position = GetSquareCenter(_mouseSquare);
+                    if (_mouseSquare != _selectedSquare)
+                    {
+                        color = (board.IsLegalMove(new Move(_selectedSquare, _mouseSquare))) ? legalColor : illegalColor;
+
+                        GamePiece mousePiece = Get(_mouseSquare);
+                        if (mousePiece != null)
+                            mousePiece.Highlight(true);
+                    }
                 }
+
+                Highlight(_mouseSquare, color);
             }
         }
     }
@@ -104,7 +106,11 @@ public class GameManager : MonoBehaviour
     public static Vector3 boardCorner { get { return boardCenter - 4 * (tileRight + tileForward); } }
 
     private const float highlightHeight = 0.01f;
-    private const float highlightAlpha = 0.5f;
+    private const float highlightAlpha = 0.25f;
+
+    private static readonly Color mouseColor = new Color(1f, 0.92f, 0.016f, highlightAlpha);
+    private static readonly Color legalColor = new Color(0f, 1f, 0f, highlightAlpha);
+    private static readonly Color illegalColor = new Color(1f, 0f, 0f, highlightAlpha);
 
     void Awake()
     {
@@ -117,9 +123,6 @@ public class GameManager : MonoBehaviour
         {
             GameObject highlight = Instantiate(highlightPrefab, GetSquareCenter(s) + highlightHeight * tileUp, Quaternion.AngleAxis(90f, Vector3.right), boardObject.transform);
             highlight.transform.localScale = new Vector3(tileSize, tileSize, tileSize);
-            Renderer renderer = highlight.GetComponent<Renderer>();
-            Color oldColor = renderer.material.color;
-            renderer.material.color = new Color(oldColor.r, oldColor.g, oldColor.b, highlightAlpha);
             highlights[8 * s.rank + s.file] = highlight;
 
         }
@@ -140,8 +143,8 @@ public class GameManager : MonoBehaviour
             {
                 if (selectedSquare == null) // clicked on the board, but no previously selected square
                 {
-                    PieceData p = board.GetPiece(mouseSquare);
-                    if (p != null && p.color == board.whoseTurn)
+                    PieceData? p = board.GetPiece(mouseSquare);
+                    if (p != null && p.Value.color == board.whoseTurn)
                         selectedSquare = mouseSquare; // only select if it's one of our pieces
                 }
                 else if (mouseSquare == selectedSquare)
@@ -151,11 +154,20 @@ public class GameManager : MonoBehaviour
                 else // the player has attempted to make a move
                 {
                     Move move = new Move(selectedSquare, mouseSquare);
-                    if (board.IsLegalMove(move))
+                    if (board.MakeMove(move))
                     {
-                        board.MakeMove(move);
-                        selectedSquare = null; // piece must be unselected before any calls to UpdateScene()
-                        UpdateScene();
+                        selectedSquare = null; // piece must be unselected before anything
+
+                        GamePiece g = Get(move.from);
+                        GamePiece h = Get(move.to);
+                        if (h != null)
+                            Destroy(h.gameObject);
+                        Set(move.from, null);
+                        Set(move.to, g);
+                        g.transform.position = GetSquareCenter(move.to);
+
+                        UpdateScene((board.sideEffect != null) ? new List<Move>() { board.sideEffect.Value } : null);
+
                         switch (board.status)
                         {
                             case BoardStatus.Promote:
@@ -217,9 +229,9 @@ public class GameManager : MonoBehaviour
             if (g != null)
                 Destroy(g.gameObject);
 
-            PieceData p = board.GetPiece(s);
+            PieceData? p = board.GetPiece(s);
             if (p != null)
-                Spawn(p, s);
+                Spawn(p.Value, s);
         }
         gameOverMenu.SetActive(false);
     }
@@ -227,9 +239,14 @@ public class GameManager : MonoBehaviour
     // Static only because PromoteMenu doesn't exist in the scene until the game starts
     public static void Promote(PieceType type)
     {
+        Square needsPromotion = instance.board.needsPromotion;
         bool success = instance.board.Promote(type);
         Debug.Assert(success);
-        instance.UpdateScene();
+
+        Destroy(instance.Get(needsPromotion).gameObject);
+        instance.Spawn(instance.board.GetPiece(needsPromotion).Value, needsPromotion);
+
+        instance.UpdateScene(null);
     }
 
     public void Resign(int player)
@@ -251,7 +268,7 @@ public class GameManager : MonoBehaviour
         gameOverMenu.SetActive(true);
     }
 
-    private void UpdateScene()
+    private void UpdateScene(List<Move> updates)
     {
         if (board.whoseTurn == PieceColor.White)
         {
@@ -263,30 +280,27 @@ public class GameManager : MonoBehaviour
             turnText.color = Color.black;
         }
 
-        // Handle castles and en passants
-        foreach (Move m in board.updates)
+        // For handling en passants, castles, and AI moves
+        if (updates != null)
         {
-            GamePiece g = Get(m.from);
-            if (m.to == m.from) {
-                Spawn(board.GetPiece(m.to), m.to);
-                Destroy(g.gameObject);
-            }
-            else // promotion
+            foreach (Move m in updates)
             {
+                GamePiece g = Get(m.from);
                 Set(m.from, null);
-
-                if (m.to != null)
+                if (m.to == null) // en passant
+                {
+                    Destroy(g.gameObject);
+                }
+                else
                 {
                     GamePiece h = Get(m.to);
                     if (h != null)
                         Destroy(h.gameObject);
-
                     Set(m.to, g);
-                    g.transform.position = GetSquareCenter(m.to);
-                }
-                else
-                {
-                    Destroy(g.gameObject);
+
+                    g.Move(GetSquareCenter(m.from), GetSquareCenter(m.to));
+
+                    // TODO: handle AI automatic promotions
                 }
             }
         }
@@ -299,12 +313,17 @@ public class GameManager : MonoBehaviour
         Set(square, p);
     }
 
-    private void Highlight(Square square, bool value)
+    private void Highlight(Square square, Color? color)
     {
         GameObject highlight = highlights[8 * square.rank + square.file];
-        Renderer renderer = highlight.GetComponent<Renderer>();
-        renderer.material.color = Color.yellow; // TODO: make color indicate IsLegalMove(selectedSquare, square)
-        highlight.SetActive(value);
+        if (color == null)
+        {
+            highlight.SetActive(false);
+        } else
+        {
+            highlight.GetComponent<Renderer>().material.color = color.Value;
+            highlight.SetActive(true);
+        }
     }
 
     private Square GetMouseSquare()
