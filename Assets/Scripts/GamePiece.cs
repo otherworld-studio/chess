@@ -45,14 +45,14 @@ public class GamePiece : MonoBehaviour
             Color oldColor = ghost.renderer.material.color;
             ghost.renderer.material.color = new Color(oldColor.r, oldColor.g, oldColor.b, ghostAlpha);
 
-            Vector3 start = Vector3.up * yOffset;
+            Vector3 start = new Vector3(0f, yOffset, 0f);
             moveCoroutine = StartCoroutine(MoveRoutine(start, start + height * GameManager.tileUp));
         } else
         {
             Destroy(ghost.gameObject);
             ghost = null;
 
-            Vector3 start = Vector3.up * yOffset;
+            Vector3 start = new Vector3(0f, yOffset, 0f);
             moveCoroutine = StartCoroutine(MoveRoutine(start + height * GameManager.tileUp, start));
         }
     }

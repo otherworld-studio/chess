@@ -3,7 +3,7 @@
 public class CameraControl : MonoBehaviour
 {
 	[SerializeField]
-	private float rotateSpeed = 4f, zoomSpeed = 8f, zoomLimit = 1f;
+	private float rotateSpeed = 4f, zoomSpeed = 8f, zoomLimit = 6f;
 
 	private float minAngle, maxAngle;
 	private Vector3 center;
@@ -16,7 +16,7 @@ public class CameraControl : MonoBehaviour
 		maxAngle = 180f - minAngle;
 		center = GameManager.boardCenter;
 		transform.position = center - x * GameManager.tileForward + y * GameManager.tileUp;
-		transform.localRotation = Quaternion.Euler(Vector3.right * pitch);
+		transform.localRotation = Quaternion.AngleAxis(pitch, Vector3.right);
 	}
 
 	void Update()
@@ -34,7 +34,7 @@ public class CameraControl : MonoBehaviour
 		// Zooming
 		Vector3 dir = center - transform.position;
 		float distance = dir.magnitude;
-		float translation = Mathf.Min(Input.GetAxis("Mouse ScrollWheel") * zoomSpeed, distance - zoomLimit);
+		float translation = Mathf.Min(Input.GetAxis("Mouse ScrollWheel") * zoomSpeed, distance - (zoomLimit * GameManager.tileSize));
 		transform.Translate(translation * (dir / distance), Space.World);
 	}
 }
