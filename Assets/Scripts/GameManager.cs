@@ -10,11 +10,11 @@ using PieceData = Board.PieceData;
 using Move = Board.Move;
 
 // TODO:
-// optimize promoteMenu calculations -- looping through all vertices every frame == :(
+// make square highlighter's material transparent
 // animate rook
 // improve piece highlighting: https://forum.unity.com/threads/solved-gameobject-picking-highlighting-and-outlining.40407/
 // show pieces that have been taken on the side of the board
-// AI
+// AI opponent
 // online multiplayer
 
 // After multiplayer:
@@ -97,13 +97,14 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    public const float tileSize = 1.5f; // Make sure this matches highlightPrefab.localScale
+    public const float tileSize = 1.5f;
     public static readonly Vector3 tileRight = Vector3.right * tileSize, tileUp = Vector3.up * tileSize, tileForward = Vector3.forward * tileSize;
 
     public static Vector3 boardCenter { get { return instance.boardObject.transform.position; } }
     public static Vector3 boardCorner { get { return boardCenter - 4 * (tileRight + tileForward); } }
 
     private const float highlightHeight = 0.01f;
+    private const float highlightAlpha = 0.5f;
 
     void Awake()
     {
@@ -114,7 +115,11 @@ public class GameManager : MonoBehaviour
         highlights = new GameObject[64];
         foreach (Square s in Square.squares)
         {
-            GameObject highlight = Instantiate(highlightPrefab, GetSquareCenter(s) + highlightHeight * tileUp, Quaternion.Euler(90f * Vector3.right), boardObject.transform);
+            GameObject highlight = Instantiate(highlightPrefab, GetSquareCenter(s) + highlightHeight * tileUp, Quaternion.AngleAxis(90f, Vector3.right), boardObject.transform);
+            highlight.transform.localScale = new Vector3(tileSize, tileSize, tileSize);
+            Renderer renderer = highlight.GetComponent<Renderer>();
+            Color oldColor = renderer.material.color;
+            renderer.material.color = new Color(oldColor.r, oldColor.g, oldColor.b, highlightAlpha);
             highlights[8 * s.rank + s.file] = highlight;
 
         }
@@ -308,7 +313,7 @@ public class GameManager : MonoBehaviour
             return null;
 
         RaycastHit hit;
-        if (Physics.Raycast(Camera.main.ScreenPointToRay(Input.mousePosition), out hit, 25.0f, LayerMask.GetMask("Board")))
+        if (Physics.Raycast(Camera.main.ScreenPointToRay(Input.mousePosition), out hit, Mathf.Infinity, LayerMask.GetMask("Board")))
         {
             int x = (int)Mathf.Floor((hit.point.x - boardCenter.x) / tileSize) + 4, y = (int)Mathf.Floor((hit.point.z - boardCenter.z) / tileSize) + 4;
             return (Square.Exists(x, y)) ? Square.At(x, y) : null;

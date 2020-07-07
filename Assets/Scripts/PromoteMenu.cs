@@ -7,7 +7,7 @@ public class PromoteMenu : MonoBehaviour
     [SerializeField]
     private GameObject canvas;
     [SerializeField]
-    private Transform knightButton, bishopButton, rookButton, queenButton;
+    private RectTransform knightButton, bishopButton, rookButton, queenButton;
 
     private Mesh mesh;
 
@@ -16,6 +16,12 @@ public class PromoteMenu : MonoBehaviour
 
     void Awake()
     {
+        Vector2 sizeDelta = new Vector2(buttonSize, buttonSize);
+        knightButton.sizeDelta = sizeDelta;
+        bishopButton.sizeDelta = sizeDelta;
+        rookButton.sizeDelta = sizeDelta;
+        queenButton.sizeDelta = sizeDelta;
+
         mesh = GetComponent<MeshFilter>().mesh;
     }
 
@@ -56,14 +62,14 @@ public class PromoteMenu : MonoBehaviour
 
     private void UpdateButtons()
     {
-        Rect bounds = boundingBox2D;
-        float w = buttonSize + bounds.width * 0.5f;
-        float h = buttonSize + bounds.height * 0.5f;
+        Rect bounds = GetMenuRectangle();
+        Vector2 right = new Vector2(buttonSize + bounds.width * 0.5f, 0f);
+        Vector2 up = new Vector2(0f, buttonSize + bounds.height * 0.5f);
 
-        knightButton.position = bounds.center + new Vector2(w, 0f);
-        bishopButton.position = bounds.center + new Vector2(0f, -h);
-        rookButton.position = bounds.center + new Vector2(-w, 0f);
-        queenButton.position = bounds.center + new Vector2(0f, h);
+        knightButton.position = bounds.center + right;
+        bishopButton.position = bounds.center - up;
+        rookButton.position = bounds.center - right;
+        queenButton.position = bounds.center + up;
     }
 
     private Coroutine animateButtonsCoroutine;
@@ -74,16 +80,16 @@ public class PromoteMenu : MonoBehaviour
         {
             if (canvas.activeSelf)
             {
-                Rect bounds = boundingBox2D;
-                float w = buttonSize + bounds.width * 0.5f;
-                float h = buttonSize + bounds.height * 0.5f;
+                Rect bounds = GetMenuRectangle();
+                Vector2 right = new Vector2(buttonSize + bounds.width * 0.5f, 0f);
+                Vector2 up = new Vector2(0f, buttonSize + bounds.height * 0.5f);
 
-                knightButton.position = Vector2.Lerp(bounds.center, bounds.center + new Vector2(w, 0f), t);
-                bishopButton.position = Vector2.Lerp(bounds.center, bounds.center + new Vector2(0f, -h), t);
-                rookButton.position = Vector2.Lerp(bounds.center, bounds.center + new Vector2(-w, 0f), t);
-                queenButton.position = Vector2.Lerp(bounds.center, bounds.center + new Vector2(0f, h), t);
+                knightButton.position = Vector2.Lerp(bounds.center, bounds.center + right, t);
+                bishopButton.position = Vector2.Lerp(bounds.center, bounds.center - up, t);
+                rookButton.position = Vector2.Lerp(bounds.center, bounds.center - right, t);
+                queenButton.position = Vector2.Lerp(bounds.center, bounds.center + up, t);
 
-                Vector3 scale = t * Vector3.one;
+                Vector3 scale = new Vector3(t, t, t);
                 knightButton.localScale = scale;
                 bishopButton.localScale = scale;
                 rookButton.localScale = scale;
@@ -105,20 +111,45 @@ public class PromoteMenu : MonoBehaviour
         animateButtonsCoroutine = null;
     }
 
-    private Rect boundingBox2D { get
+    private Rect GetBoundingBox2D()
+    {
+        float xMin = float.PositiveInfinity, yMin = float.PositiveInfinity, xMax = 0f, yMax = 0f;
+        foreach (Vector3 v in mesh.vertices)
         {
-            float xMin = float.PositiveInfinity, yMin = float.PositiveInfinity, xMax = 0f, yMax = 0f;
-            foreach (Vector3 v in mesh.vertices)
-            {
-                Vector2 pos = RectTransformUtility.WorldToScreenPoint(Camera.main, transform.TransformPoint(v));
+            Vector2 pos = RectTransformUtility.WorldToScreenPoint(Camera.main, transform.TransformPoint(v));
 
-                if (pos.x < xMin) xMin = pos.x;
-                if (pos.y < yMin) yMin = pos.y;
-                if (pos.x > xMax) xMax = pos.x;
-                if (pos.y > yMax) yMax = pos.y;
-            }
-
-            return new Rect(xMin, yMin, xMax - xMin, yMax - yMin);
+            if (pos.x < xMin) xMin = pos.x;
+            if (pos.y < yMin) yMin = pos.y;
+            if (pos.x > xMax) xMax = pos.x;
+            if (pos.y > yMax) yMax = pos.y;
         }
+
+        return new Rect(xMin, yMin, xMax - xMin, yMax - yMin);
+    }
+
+    private Rect GetMenuRectangle()
+    {
+        Bounds bounds = mesh.bounds;
+        Vector3 centerInWorld = transform.TransformPoint(bounds.center);
+        Vector3 centerInViewport = Camera.main.WorldToViewportPoint(centerInWorld);
+        Vector2 centerInScreen = Camera.main.ViewportToScreenPoint(centerInViewport);
+
+        // Distance between left and right buttons is proportional only to magnification
+        Vector3 screenLeftInWorld = Camera.main.ScreenToWorldPoint(new Vector3(centerInScreen.x - 1f, centerInScreen.y, centerInViewport.z)) - centerInWorld;
+        Vector2 leftSideInScreen = Camera.main.WorldToScreenPoint(centerInWorld + screenLeftInWorld * (bounds.extents.x / screenLeftInWorld.magnitude));
+
+        Ray r = Camera.main.ScreenPointToRay(new Vector2(centerInScreen.x, centerInScreen.y - 1f));
+        Plane boardPlane = new Plane(Vector3.up, centerInWorld);
+        float enter;
+        bool success = boardPlane.Raycast(r, out enter);
+        Debug.Assert(success);
+        Vector3 screenDownInWorld = r.GetPoint(enter) - centerInWorld;
+        Vector2 bottomSideInScreen = Camera.main.WorldToScreenPoint(new Vector3(centerInWorld.x, centerInWorld.y - bounds.extents.y, centerInWorld.z) + screenDownInWorld * (bounds.extents.x / screenDownInWorld.magnitude));
+        if (bottomSideInScreen.y > centerInScreen.y)
+            bottomSideInScreen = Camera.main.WorldToScreenPoint(new Vector3(centerInWorld.x, centerInWorld.y + bounds.extents.y, centerInWorld.z));
+
+        Vector2 cornerInScreen = new Vector2(leftSideInScreen.x, bottomSideInScreen.y);
+
+        return new Rect(cornerInScreen, 2 * (centerInScreen - cornerInScreen));
     }
 }

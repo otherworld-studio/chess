@@ -466,7 +466,7 @@ MonoBehaviour:
   - {fileID: 47869687, guid: 1cd1246e0bdeb5d4288e67abc19ea760, type: 3}
   - {fileID: 3469945752820951794, guid: 800e9e9368f691d4394396896a5f0631, type: 3}
   - {fileID: 8161087410110819126, guid: 698f705a8041e174b857cf0aaf6aaa40, type: 3}
-  highlightPrefab: {fileID: 3687928338218343973, guid: 8038e4b392fc54d40bbc5de3d87995ce,
+  highlightPrefab: {fileID: 617939250562387958, guid: 8038e4b392fc54d40bbc5de3d87995ce,
     type: 3}
   turnText: {fileID: 1886675644}
   gameOverText: {fileID: 1715942997}
@@ -561,7 +561,7 @@ Light:
   m_BounceIntensity: 1
   m_ColorTemperature: 6570
   m_UseColorTemperature: 0
-  m_BoundingSphereOverride: {x: 0, y: 0, z: 0, w: 0}
+  m_BoundingSphereOverride: {x: 7.884e-42, y: 1.04e-43, z: 0, w: 0}
   m_UseBoundingSphereOverride: 0
   m_ShadowRadius: 0
   m_ShadowAngle: 0
