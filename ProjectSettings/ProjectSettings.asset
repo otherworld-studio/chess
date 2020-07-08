@@ -638,10 +638,10 @@ PlayerSettings:
   facebookXfbml: 0
   facebookFrictionlessRequests: 1
   apiCompatibilityLevel: 6
-  cloudProjectId: 
+  cloudProjectId: 6bc20729-d0d9-4523-9da0-c13868df5e92
   framebufferDepthMemorylessMode: 0
-  projectName: 
-  organizationId: 
+  projectName: Chess
+  organizationId: bubblemonkey
   cloudEnabled: 0
   enableNativePlatformBackendsForNewInputSystem: 0
   disableOldInputManagerSupport: 0
