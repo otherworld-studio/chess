@@ -1,8 +1,12 @@
 ﻿using System.Collections;
 using UnityEngine;
 
+using PieceColor = Board.PieceColor;
+
 public class GamePiece : MonoBehaviour
 {
+    [SerializeField]
+    private PieceColor pieceColor;
     [SerializeField]
     private float yOffset = 0f;
     [SerializeField]
@@ -10,8 +14,9 @@ public class GamePiece : MonoBehaviour
     [SerializeField]
     private PromoteMenu promoteMenu;
 
-    private Color startColor;
+    public PieceColor color { get { return pieceColor; } }
 
+    private Color startColor;
     private GamePiece ghost;
 
     private const float height = 2.3f; // Height of picked up pieces, in board tiles
@@ -61,7 +66,15 @@ public class GamePiece : MonoBehaviour
 
     public void RequestPromotion()
     {
-        StartCoroutine(WaitForIdle());
+        StartCoroutine(RequestPromotionRoutine());
+    }
+
+    private IEnumerator RequestPromotionRoutine()
+    {
+        while (localTranslationCoroutine != null || globalTranslationCoroutine != null || moveCoroutine != null)
+            yield return new WaitForSeconds(GameManager.waitInterval);
+
+        promoteMenu.enabled = true;
     }
 
     // Called by UI buttons
@@ -105,16 +118,9 @@ public class GamePiece : MonoBehaviour
         globalTranslationCoroutine = null;
     }
 
-    private IEnumerator WaitForIdle()
-    {
-        while (localTranslationCoroutine != null)
-            yield return new WaitForSeconds(0.1f);
-
-        promoteMenu.enabled = true;
-    }
-
     public void Move(Vector3 from, Vector3 to)
     {
+        StopAllCoroutines();
         moveCoroutine = StartCoroutine(MoveRoutine(from, to));
     }
 

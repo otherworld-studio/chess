@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -10,11 +11,10 @@ using PieceData = Board.PieceData;
 using Move = Board.Move;
 
 // TODO:
-// promote menu still jerks slightly when you cross the plane
 // improve piece highlighting: https://forum.unity.com/threads/solved-gameobject-picking-highlighting-and-outlining.40407/
-// show pieces that have been taken on the side of the board
 // AI opponent
 // online multiplayer
+// make a more robust coroutine framework
 
 // After multiplayer:
 // draw by mutual agreement (GameManager)
@@ -31,14 +31,17 @@ public class GameManager : MonoBehaviour
     private Text turnText, gameOverText, winnerText, debugText;
     [SerializeField]
     private GameObject boardObject, gameOverMenu;
+    [SerializeField]
+    private Transform whiteGraveyard, blackGraveyard;
 
     private static GameManager instance = null; // singleton instance
 
     private Board board;
     private GamePiece[] gamePieces;
+    private GamePiece[] whitePiecesTaken;
+    private GamePiece[] blackPiecesTaken;
     private GameObject[] highlights;
     private bool resigned;
-
     private List<GameObject> highlighted; // TODO: assist mode?
 
     private Square _selectedSquare;
@@ -105,6 +108,8 @@ public class GameManager : MonoBehaviour
     public static Vector3 boardCenter { get { return instance.boardObject.transform.position; } }
     public static Vector3 boardCorner { get { return boardCenter - 4 * (tileRight + tileForward); } }
 
+    public const float waitInterval = 0.1f;
+
     private const float highlightHeight = 0.01f;
     private const float highlightAlpha = 0.25f;
 
@@ -118,6 +123,8 @@ public class GameManager : MonoBehaviour
         instance = this;
 
         gamePieces = new GamePiece[64];
+        whitePiecesTaken = new GamePiece[15];
+        blackPiecesTaken = new GamePiece[15];
         highlights = new GameObject[64];
         foreach (Square s in Square.squares)
         {
@@ -143,8 +150,8 @@ public class GameManager : MonoBehaviour
             {
                 if (selectedSquare == null) // clicked on the board, but no previously selected square
                 {
-                    PieceData? p = board.GetPiece(mouseSquare);
-                    if (p != null && p.Value.color == board.whoseTurn)
+                    GamePiece g = Get(mouseSquare);
+                    if (g != null && g.color == board.whoseTurn)
                         selectedSquare = mouseSquare; // only select if it's one of our pieces
                 }
                 else if (mouseSquare == selectedSquare)
@@ -158,10 +165,9 @@ public class GameManager : MonoBehaviour
                     {
                         selectedSquare = null; // piece must be unselected before anything
 
+                        if (Get(move.to) != null)
+                            Take(move.to);
                         GamePiece g = Get(move.from);
-                        GamePiece h = Get(move.to);
-                        if (h != null)
-                            Destroy(h.gameObject);
                         Set(move.from, null);
                         Set(move.to, g);
                         g.transform.position = GetSquareCenter(move.to);
@@ -219,6 +225,24 @@ public class GameManager : MonoBehaviour
         gamePieces[8 * square.rank + square.file] = piece;
     }
 
+    private void Take(Square square)
+    {
+        GamePiece g = Get(square);
+        Set(square, null);
+        g.Highlight(false);
+        if (g.color == PieceColor.White)
+        {
+            int index = whitePiecesTaken.Count(x => x != null);
+            whitePiecesTaken[index] = g;
+            g.Move(GetSquareCenter(square), whiteGraveyard.GetChild(index).position);
+        } else
+        {
+            int index = blackPiecesTaken.Count(x => x != null);
+            blackPiecesTaken[index] = g;
+            g.Move(GetSquareCenter(square), blackGraveyard.GetChild(index).position);
+        }
+    }
+
     public void Reset()
     {
         board = new Board();
@@ -232,6 +256,28 @@ public class GameManager : MonoBehaviour
             PieceData? p = board.GetPiece(s);
             if (p != null)
                 Spawn(p.Value, s);
+            else
+                Set(s, null);
+        }
+        for (int i = 0; i < 30; ++i)
+        {
+            GamePiece g = whitePiecesTaken[i];
+            GamePiece h = blackPiecesTaken[i];
+            if (g != null)
+            {
+                whitePiecesTaken[i] = null;
+                Destroy(g.gameObject);
+            }
+            else if (h == null)
+            {
+                break;
+            }
+
+            if (h != null)
+            {
+                blackPiecesTaken[i] = null;
+                Destroy(h.gameObject);
+            }
         }
         gameOverMenu.SetActive(false);
     }
@@ -285,17 +331,16 @@ public class GameManager : MonoBehaviour
         {
             foreach (Move m in updates)
             {
-                GamePiece g = Get(m.from);
-                Set(m.from, null);
                 if (m.to == null) // en passant
                 {
-                    Destroy(g.gameObject);
+                    Take(m.from);
                 }
                 else
                 {
-                    GamePiece h = Get(m.to);
-                    if (h != null)
-                        Destroy(h.gameObject);
+                    GamePiece g = Get(m.from);
+                    Set(m.from, null);
+                    if (Get(m.to) != null)
+                        Take(m.to);
                     Set(m.to, g);
 
                     g.Move(GetSquareCenter(m.from), GetSquareCenter(m.to));

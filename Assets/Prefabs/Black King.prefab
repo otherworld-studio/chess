@@ -138,6 +138,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d8c285eb53c0eed48ad4d235f2e4b88f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  pieceColor: 1
   yOffset: 0.1722313
   renderer: {fileID: 4457568608518341408}
   promoteMenu: {fileID: 0}
