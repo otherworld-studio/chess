@@ -8,6 +8,8 @@ public class PromoteMenu : MonoBehaviour
     private GameObject canvas;
     [SerializeField]
     private RectTransform knightButton, bishopButton, rookButton, queenButton;
+    [SerializeField]
+    private MeshFilter meshFilter;
 
     private Mesh mesh;
 
@@ -22,7 +24,7 @@ public class PromoteMenu : MonoBehaviour
         rookButton.sizeDelta = sizeDelta;
         queenButton.sizeDelta = sizeDelta;
 
-        mesh = GetComponent<MeshFilter>().mesh;
+        mesh = meshFilter.mesh;
     }
 
     void OnEnable()
@@ -62,14 +64,14 @@ public class PromoteMenu : MonoBehaviour
 
     private void UpdateButtons()
     {
-        Rect bounds = GetMenuRectangle();
-        Vector2 right = new Vector2(buttonSize + bounds.width * 0.5f, 0f);
-        Vector2 up = new Vector2(0f, buttonSize + bounds.height * 0.5f);
+        Rect boundingBox = GetBoundingBox2D();
+        Vector2 right = new Vector2(buttonSize + boundingBox.width * 0.5f, 0f);
+        Vector2 up = new Vector2(0f, buttonSize + boundingBox.height * 0.5f);
 
-        knightButton.position = bounds.center + right;
-        bishopButton.position = bounds.center - up;
-        rookButton.position = bounds.center - right;
-        queenButton.position = bounds.center + up;
+        knightButton.position = boundingBox.center + right;
+        bishopButton.position = boundingBox.center - up;
+        rookButton.position = boundingBox.center - right;
+        queenButton.position = boundingBox.center + up;
     }
 
     private Coroutine animateButtonsCoroutine;
@@ -80,7 +82,7 @@ public class PromoteMenu : MonoBehaviour
         {
             if (canvas.activeSelf)
             {
-                Rect bounds = GetMenuRectangle();
+                Rect bounds = GetBoundingBox2D();
                 Vector2 right = new Vector2(buttonSize + bounds.width * 0.5f, 0f);
                 Vector2 up = new Vector2(0f, buttonSize + bounds.height * 0.5f);
 
@@ -116,7 +118,7 @@ public class PromoteMenu : MonoBehaviour
         float xMin = float.PositiveInfinity, yMin = float.PositiveInfinity, xMax = 0f, yMax = 0f;
         foreach (Vector3 v in mesh.vertices)
         {
-            Vector2 pos = RectTransformUtility.WorldToScreenPoint(Camera.main, transform.TransformPoint(v));
+            Vector2 pos = RectTransformUtility.WorldToScreenPoint(Camera.main, meshFilter.transform.TransformPoint(v));
 
             if (pos.x < xMin) xMin = pos.x;
             if (pos.y < yMin) yMin = pos.y;
@@ -127,6 +129,7 @@ public class PromoteMenu : MonoBehaviour
         return new Rect(xMin, yMin, xMax - xMin, yMax - yMin);
     }
 
+    /* The result of several attempts to make a faster GetBoundingBox2D - in the end I found that using a simpler cylindrical mesh was much easier
     private Rect GetMenuRectangle()
     {
         Bounds bounds = mesh.bounds;
@@ -136,20 +139,42 @@ public class PromoteMenu : MonoBehaviour
 
         // Distance between left and right buttons is proportional only to magnification
         Vector3 screenLeftInWorld = Camera.main.ScreenToWorldPoint(new Vector3(centerInScreen.x - 1f, centerInScreen.y, centerInViewport.z)) - centerInWorld;
-        Vector2 leftSideInScreen = Camera.main.WorldToScreenPoint(centerInWorld + screenLeftInWorld * (bounds.extents.x / screenLeftInWorld.magnitude));
+        Vector2 leftEdgeInScreen = Camera.main.WorldToScreenPoint(centerInWorld + screenLeftInWorld * (bounds.extents.x / screenLeftInWorld.magnitude));
 
-        Ray r = Camera.main.ScreenPointToRay(new Vector2(centerInScreen.x, centerInScreen.y - 1f));
-        Plane boardPlane = new Plane(Vector3.up, centerInWorld);
-        float enter;
-        bool success = boardPlane.Raycast(r, out enter);
-        Debug.Assert(success);
-        Vector3 screenDownInWorld = r.GetPoint(enter) - centerInWorld;
-        Vector2 bottomSideInScreen = Camera.main.WorldToScreenPoint(new Vector3(centerInWorld.x, centerInWorld.y - bounds.extents.y, centerInWorld.z) + screenDownInWorld * (bounds.extents.x / screenDownInWorld.magnitude));
-        if (bottomSideInScreen.y > centerInScreen.y)
-            bottomSideInScreen = Camera.main.WorldToScreenPoint(new Vector3(centerInWorld.x, centerInWorld.y + bounds.extents.y, centerInWorld.z));
+        // Distance between top and bottom buttons depends on magnification (extents.y) as well as a small correction for the base of the chess piece (extents.x)
+        Vector3 bottomInWorld = new Vector3(centerInWorld.x, centerInWorld.y - bounds.extents.y, centerInWorld.z);
+        Vector3 bottomInViewport = Camera.main.WorldToViewportPoint(bottomInWorld);
+        Vector2 bottomInScreen = Camera.main.ViewportToScreenPoint(bottomInViewport);
+        Vector3 screenDownInWorld = (Camera.main.ScreenToWorldPoint(new Vector3(bottomInScreen.x, bottomInScreen.y - 1f, bottomInViewport.z)) - bottomInWorld).normalized;
+        float dot = Vector3.Dot(-Vector3.up, screenDownInWorld);
+        float correction = Mathf.Sqrt(Mathf.Sqrt(1f - dot * dot * dot * dot * dot * dot));
+        Debug.Log(correction);
+        Vector2 bottomEdgeInScreen = Camera.main.WorldToScreenPoint(bottomInWorld + screenDownInWorld * bounds.extents.x * correction);
+        if (bottomEdgeInScreen.y > centerInScreen.y) // sometimes the top of the piece is below its center on the screen
+            bottomEdgeInScreen = Camera.main.WorldToScreenPoint(new Vector3(centerInWorld.x, centerInWorld.y + bounds.extents.y, centerInWorld.z));
 
-        Vector2 cornerInScreen = new Vector2(leftSideInScreen.x, bottomSideInScreen.y);
+        Vector2 cornerInScreen = new Vector2(leftEdgeInScreen.x, bottomEdgeInScreen.y);
 
         return new Rect(cornerInScreen, 2 * (centerInScreen - cornerInScreen));
+
+    // Raycasting solution (blinks near the plane)
+        Vector3 screenDownInWorld;
+        Plane boardPlane = new Plane(Vector3.up, centerInWorld);
+        float enter;
+        if (Camera.main.transform.position.y > centerInWorld.y)
+        {
+            Ray r = Camera.main.ScreenPointToRay(new Vector2(centerInScreen.x, centerInScreen.y - 1f));
+            bool success = boardPlane.Raycast(r, out enter);
+            Debug.Assert(success);
+            screenDownInWorld = r.GetPoint(enter) - centerInWorld;
+        } else
+        {
+            Ray r = Camera.main.ScreenPointToRay(new Vector2(centerInScreen.x, centerInScreen.y + 1f));
+            bool success = boardPlane.Raycast(r, out enter);
+            Debug.Assert(success);
+            screenDownInWorld = centerInWorld - r.GetPoint(enter);
+        }
+        Vector2 bottomEdgeInScreen = Camera.main.WorldToScreenPoint(new Vector3(centerInWorld.x, centerInWorld.y - bounds.extents.y, centerInWorld.z) + screenDownInWorld * (bounds.extents.x / screenDownInWorld.magnitude));
     }
+    */
 }
