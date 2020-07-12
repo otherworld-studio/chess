@@ -563,6 +563,7 @@ MonoBehaviour:
   winnerText: {fileID: 350786604}
   debugText: {fileID: 87407688}
   boardObject: {fileID: 1325377754}
+  HUD: {fileID: 1451205118}
   gameOverMenu: {fileID: 457142932}
   whiteGraveyard: {fileID: 1233006802}
   blackGraveyard: {fileID: 1595918233}

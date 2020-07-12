@@ -36,5 +36,7 @@ public class CameraControl : MonoBehaviour
 		float distance = dir.magnitude;
 		float translation = Mathf.Min(Input.GetAxis("Mouse ScrollWheel") * zoomSpeed, distance - (zoomLimit * GameManager.tileSize));
 		transform.Translate(translation * (dir / distance), Space.World);
+
+		transform.LookAt(center); // For long-term stability
 	}
 }
