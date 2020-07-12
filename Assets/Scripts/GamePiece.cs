@@ -55,7 +55,6 @@ public class GamePiece : MonoBehaviour
     public void Select(bool value)
     {
         StopAllCoroutines();
-        ascendCoroutine = null;
         descendCoroutine = null;
         sidewaysCoroutine = null;
 
