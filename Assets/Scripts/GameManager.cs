@@ -265,7 +265,7 @@ public class GameManager : MonoBehaviour
     private Coroutine updateSceneCoroutine;
     private IEnumerator UpdateSceneRoutine(Move? humanMove = null, List<Move> updates = null)
     {
-        if (humanMove != null) // Don't animate this move
+        if (humanMove != null) // Don't call GamePiece.Move() on this move
         {
             Move move = humanMove.Value;
 
@@ -278,6 +278,8 @@ public class GameManager : MonoBehaviour
                 while (h.Ascending() || h.Descending() || h.MovingSideways())
                     yield return null;
             }
+            while (g.Descending())
+                yield return null;
             Set(move.from, null);
             Set(move.to, g);
         }
