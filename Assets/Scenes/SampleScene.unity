@@ -567,6 +567,7 @@ MonoBehaviour:
   gameOverMenu: {fileID: 457142932}
   whiteGraveyard: {fileID: 1233006802}
   blackGraveyard: {fileID: 1595918233}
+  outlineShader: {fileID: 4800000, guid: 9734a504b98e7b044ba11086fd206a8e, type: 3}
 --- !u!4 &463424611
 Transform:
   m_ObjectHideFlags: 0
