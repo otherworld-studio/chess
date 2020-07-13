@@ -12,6 +12,7 @@ using PieceData = Board.PieceData;
 using Move = Board.Move;
 
 // TODO:
+// USEPASS
 // deal with invisible piece rendering problem properly (without ZWrite crutch)
 // AI opponent
 // online multiplayer
@@ -53,6 +54,9 @@ public class GameManager : MonoBehaviour
     private Square selectedSquare {
         get { return _selectedSquare; }
         set {
+            if (value == _selectedSquare)
+                return;
+            
             if (_selectedSquare != null) // a piece was already selected
             {
                 GamePiece selectedPiece = Get(_selectedSquare);
@@ -76,6 +80,9 @@ public class GameManager : MonoBehaviour
         get { return _mouseSquare; }
         set
         {
+            if (value == _mouseSquare)
+                return;
+
             if (_mouseSquare != null)
             {
                 Highlight(_mouseSquare, null);
@@ -92,14 +99,16 @@ public class GameManager : MonoBehaviour
                 if (_selectedSquare != null)
                 {
                     Get(_selectedSquare).transform.position = GetSquareCenter(_mouseSquare);
-                    if (_mouseSquare != _selectedSquare)
-                    {
+                }
+
+                if (_mouseSquare != _selectedSquare)
+                {
+                    if (_selectedSquare != null)
                         color = (board.IsLegalMove(new Move(_selectedSquare, _mouseSquare))) ? legalColor : illegalColor;
 
-                        GamePiece mousePiece = Get(_mouseSquare);
-                        if (mousePiece != null)
-                            mousePiece.Highlight(true);
-                    }
+                    GamePiece mousePiece = Get(_mouseSquare);
+                    if (mousePiece != null)
+                        mousePiece.Highlight(true);
                 }
 
                 Highlight(_mouseSquare, color);
@@ -113,7 +122,7 @@ public class GameManager : MonoBehaviour
     public static Vector3 boardCenter { get { return instance.boardObject.transform.position; } }
     public static Vector3 boardCorner { get { return boardCenter - 4 * (tileRight + tileForward); } }
 
-    public static Shader pieceShader { get { return instance.outlineShader; } }
+    public static Shader highlightShader { get { return instance.outlineShader; } }
 
     public const float waitInterval = 0.1f;
 
@@ -149,7 +158,6 @@ public class GameManager : MonoBehaviour
             return;
 
         mouseSquare = GetMouseSquare();
-        DrawDebugLines(); // DEBUG
 
         if (Input.GetMouseButtonDown(0))
         {
