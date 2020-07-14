@@ -12,8 +12,6 @@ public class GamePiece : MonoBehaviour
     [SerializeField]
     private Renderer renderer;
     [SerializeField]
-    private Material outlineMaterial;
-    [SerializeField]
     private PromoteMenu promoteMenu;
 
     public PieceColor color { get { return pieceColor; } }
@@ -38,7 +36,8 @@ public class GamePiece : MonoBehaviour
         startMaterial = new Material(renderer.material);
         startMaterial.SetFloat("_ZWrite", 1); // TODO: find a better solution
         renderer.material = startMaterial;
-        highlightMaterial = new Material(outlineMaterial);
+        highlightMaterial = new Material(startMaterial);
+        highlightMaterial.shader = GameManager.highlightShader;
 
         grounded = new Vector3(0f, yOffset, 0f);
         raised = grounded + height * GameManager.tileUp;

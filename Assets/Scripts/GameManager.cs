@@ -29,6 +29,8 @@ public class GameManager : MonoBehaviour
     private List<GamePiece> piecePrefabs;
     [SerializeField]
     private GameObject highlightPrefab;
+    [SerializeField]
+    private Shader outlineShader;
 
     // TODO: add turnText to HUD, 1 HUD for each player
     [SerializeField]
@@ -119,6 +121,8 @@ public class GameManager : MonoBehaviour
 
     public static Vector3 boardCenter { get { return instance.boardObject.transform.position; } }
     public static Vector3 boardCorner { get { return boardCenter - 4 * (tileRight + tileForward); } }
+
+    public static Shader highlightShader { get { return instance.outlineShader; } }
 
     public const float waitInterval = 0.1f;
 
