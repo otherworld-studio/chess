@@ -2,9 +2,9 @@
 {
     Properties
     {
-        _Color("Main Color", Color) = (0.5, 0.5, 0.5, 1)
+        _Color("Main Color", Color) = (1.0, 1.0, 1.0, 1.0)
         _MainTex("Texture", 2D) = "white" {}
-        _OutlineColor("Outline Color", Color) = (1, 1, 1, 1)
+        _OutlineColor("Outline Color", Color) = (1.0, 1.0, 1.0, 1.0)
         _OutlineWidth("Outline Width", Range(0.0, 1.0)) = 0.1
     }
 
@@ -46,7 +46,9 @@
                 }
 
                 v2f vert(appdata v) {
-                    v.vertex.xyz += normalize(v.normal.xyz) * _OutlineWidth;
+                    //v.vertex.xyz += normalize(v.normal.xyz) * _OutlineWidth; This approach requires smoothed mesh normals (https://answers.unity.com/questions/625968/unitys-outline-shader-sharp-edges.html)
+                    float norm = length(v.vertex.xyz);
+                    v.vertex.xyz *= 1.0 + _OutlineWidth / norm;
 
                     v2f o; // Unity uses HLSL which doesn't support most struct constructors
                     o.vertex = UnityObjectToClipPos(v.vertex);
@@ -57,6 +59,8 @@
             }
 
             // Surface shader (borrowed from Shrimpey)
+            Tags{ "Queue" = "Transparent" } // Without this, outline isn't rendered when the chess piece is behind another object
+
             CGPROGRAM
             #pragma surface surf Lambert noshadow
 
@@ -73,4 +77,5 @@
 
             ENDCG
         }
+        Fallback "Diffuse" // Without this, the object does not cast shadows...?
 }

@@ -12,12 +12,13 @@ public class GamePiece : MonoBehaviour
     [SerializeField]
     private Renderer renderer;
     [SerializeField]
+    private Material outlineMaterial;
+    [SerializeField]
     private PromoteMenu promoteMenu;
 
     public PieceColor color { get { return pieceColor; } }
 
-    //private Color startColor;
-    private Shader startShader;
+    private Material startMaterial, highlightMaterial;
     private Vector3 grounded, raised;
     private GamePiece ghost;
 
@@ -34,9 +35,10 @@ public class GamePiece : MonoBehaviour
 
     void Awake()
     {
-        renderer.material.SetFloat("_ZWrite", 1);
-        //startColor = renderer.material.color;
-        startShader = renderer.material.shader;
+        startMaterial = new Material(renderer.material);
+        startMaterial.SetFloat("_ZWrite", 1); // TODO: find a better solution
+        renderer.material = startMaterial;
+        highlightMaterial = new Material(outlineMaterial);
 
         grounded = new Vector3(0f, yOffset, 0f);
         raised = grounded + height * GameManager.tileUp;
@@ -46,12 +48,10 @@ public class GamePiece : MonoBehaviour
     {
         if (value)
         {
-            renderer.material.shader = GameManager.highlightShader;
-            //renderer.material.color = Color.yellow;
+            renderer.material = highlightMaterial;
         } else
         {
-            renderer.material.shader = startShader;
-            //renderer.material.color = startColor;
+            renderer.material = startMaterial;
         }
     }
 

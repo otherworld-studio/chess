@@ -12,7 +12,8 @@ using PieceData = Board.PieceData;
 using Move = Board.Move;
 
 // TODO:
-// USEPASS
+// make a better outline shader which converts fragment to screen space, and projects outward in a circle? If that can't be done we might have to generate the outline CPU-side
+// stop pieces from changing color on highlight - add outline shader to a copy of standard shader? try using USEPASS?
 // deal with invisible piece rendering problem properly (without ZWrite crutch)
 // AI opponent
 // online multiplayer
@@ -36,9 +37,6 @@ public class GameManager : MonoBehaviour
     private GameObject boardObject, HUD, gameOverMenu;
     [SerializeField]
     private Transform whiteGraveyard, blackGraveyard;
-
-    [SerializeField]
-    private Shader outlineShader;
 
     private static GameManager instance = null; // singleton instance
 
@@ -122,12 +120,10 @@ public class GameManager : MonoBehaviour
     public static Vector3 boardCenter { get { return instance.boardObject.transform.position; } }
     public static Vector3 boardCorner { get { return boardCenter - 4 * (tileRight + tileForward); } }
 
-    public static Shader highlightShader { get { return instance.outlineShader; } }
-
     public const float waitInterval = 0.1f;
 
     private const float highlightHeight = 0.01f;
-    private const float highlightAlpha = 0.25f;
+    private const float highlightAlpha = 0.5f;
 
     private static readonly Color mouseColor = new Color(1f, 0.92f, 0.016f, highlightAlpha);
     private static readonly Color legalColor = new Color(0f, 1f, 0f, highlightAlpha);

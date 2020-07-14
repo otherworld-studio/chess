@@ -47,6 +47,7 @@ MonoBehaviour:
   pieceColor: 1
   yOffset: 0.1722312
   renderer: {fileID: 7438554045472187269}
+  outlineMaterial: {fileID: 2100000, guid: 0d91a2b578b029644bbf0b98b443a00e, type: 2}
   promoteMenu: {fileID: 0}
 --- !u!1 &7994297327379306653
 GameObject:
@@ -107,7 +108,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 33be6a53b620c6d47b70d1e1c2f69e74, type: 2}
+  - {fileID: 2100000, guid: 41bdca2b5495eec4d8f796a2d1a5ea73, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
