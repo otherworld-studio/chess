@@ -6,18 +6,19 @@ using System.Linq;
 // TODO: threefold repetition: a player has the OPTION of claiming a draw if an identical position has occured at least three times during the course of the game with the same player to move each time (the third time CAN be the next position after this player makes their move, i.e. the player can claim the draw before actually making the move)
 // TODO: fifty move rule: either player has the OPTION of claiming a draw if no capture or pawn movement in the last 50 turns (100 indivial player moves)
 
+// Representation of an active chess game for use in a game or AI
 public class Board
 {
-    public BoardStatus status { get; private set; }
+    public BoardStatus status { get; private set; } // denotes whether the game is still being played (i.e. still accepting moves), otherwise denotes the gameover condition
     public PieceColor whoseTurn { get; private set; }
-    public Square needsPromotion { get; private set; }
+    public Square needsPromotion { get; private set; } // the square containing the pawn that needs promotion, or null if none exists
     private Stack<Move> _moves;
     public Stack<Move> moves { get { return new Stack<Move>(_moves); } }
-    public Move? sideEffect { get; private set; } // stores castling/en passant info during the latest move
+    public Move? sideEffect { get; private set; } // stores castling/en passant effects during the latest move
     
     private Piece[] board;
     private HashSet<Piece> hasMoved; // Contains only kings and rooks that have moved at least once
-    private Piece justDoubleStepped;
+    private Piece justDoubleStepped; // for en passant
 
     public Board()
     {
@@ -897,6 +898,7 @@ public class Board
         }
     }
 
+    // Tests
     static Board()
     {
         Board board = new Board();

@@ -25,6 +25,8 @@
                 Tags { "Queue" = "Transparent" "RenderType" = "Transparent" "ForceNoShadowCasting" = "True" "IgnoreProjector" = "True" }
                 Blend SrcAlpha OneMinusSrcAlpha // TODO: this necessary?
                 ZWrite Off
+                Cull Front
+                ZTest Always // Necessary when using Cull Front, to prevent clipping artefacts with the floor
 
                 CGPROGRAM
                 #pragma vertex vert
@@ -58,18 +60,17 @@
                 ENDCG
             }
 
-            // Surface shader (borrowed from Shrimpey)
             Tags{ "Queue" = "Transparent" } // Without this, outline isn't rendered when the chess piece is behind another object
 
             CGPROGRAM
-            #pragma surface surf Lambert noshadow
+            #pragma surface surf Standard
 
             struct Input {
                 float2 uv_MainTex;
                 float4 color : COLOR;
             };
 
-            void surf(Input IN, inout SurfaceOutput  o) {
+            void surf(Input IN, inout SurfaceOutputStandard o) {
                 fixed4 c = tex2D(_MainTex, IN.uv_MainTex) * _Color;
                 o.Albedo = c.rgb;
                 o.Alpha = c.a;
@@ -77,5 +78,5 @@
 
             ENDCG
         }
-        Fallback "Diffuse" // Without this, the object does not cast shadows...?
+        Fallback "Standard" // Needed for shadows
 }

@@ -12,8 +12,8 @@ using PieceData = Board.PieceData;
 using Move = Board.Move;
 
 // TODO:
-// make a better outline shader which converts fragment to screen space, and projects outward in a circle? If that can't be done we might have to generate the outline CPU-side
-// stop pieces from changing color on highlight - add outline shader to a copy of standard shader? try using USEPASS?
+// make a better outline shader which converts fragment to screen space, and projects outward in a circle? (https://www.videopoetics.com/tutorials/pixel-perfect-outline-shaders-unity/)
+// or https://www.vertexfragment.com/ramblings/unity-postprocessing-sobel-outline/
 // deal with invisible piece rendering problem properly (without ZWrite crutch)
 // AI opponent
 // online multiplayer
