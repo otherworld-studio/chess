@@ -12,9 +12,10 @@ using PieceData = Board.PieceData;
 using Move = Board.Move;
 
 // TODO:
-// make a better outline shader which converts fragment to screen space, and projects outward in a circle? (https://www.videopoetics.com/tutorials/pixel-perfect-outline-shaders-unity/)
-// or https://www.vertexfragment.com/ramblings/unity-postprocessing-sobel-outline/
-// deal with invisible piece rendering problem properly (without ZWrite crutch)
+// finish outline shader w/ stencil buffer
+// smooth mesh normals
+// ghost shader (no ZWrite crutch)
+// check out sobel filter: https://www.vertexfragment.com/ramblings/unity-postprocessing-sobel-outline/
 // AI opponent
 // online multiplayer
 // make a more robust coroutine framework?
@@ -30,7 +31,7 @@ public class GameManager : MonoBehaviour
     [SerializeField]
     private GameObject highlightPrefab;
     [SerializeField]
-    private Shader outlineShader;
+    private Shader outlineShader, transparentShader;
 
     // TODO: add turnText to HUD, 1 HUD for each player
     [SerializeField]
@@ -123,6 +124,7 @@ public class GameManager : MonoBehaviour
     public static Vector3 boardCorner { get { return boardCenter - 4 * (tileRight + tileForward); } }
 
     public static Shader highlightShader { get { return instance.outlineShader; } }
+    public static Shader ghostShader { get { return instance.transparentShader; } }
 
     public const float waitInterval = 0.1f;
 

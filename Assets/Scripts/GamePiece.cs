@@ -16,7 +16,7 @@ public class GamePiece : MonoBehaviour
 
     public PieceColor color { get { return pieceColor; } }
 
-    private Material startMaterial, highlightMaterial;
+    private Shader startShader;
     private Vector3 grounded, raised;
     private GamePiece ghost;
 
@@ -33,11 +33,7 @@ public class GamePiece : MonoBehaviour
 
     void Awake()
     {
-        startMaterial = new Material(renderer.material);
-        startMaterial.SetFloat("_ZWrite", 1); // TODO: find a better solution
-        renderer.material = startMaterial;
-        highlightMaterial = new Material(startMaterial);
-        highlightMaterial.shader = GameManager.highlightShader;
+        startShader = renderer.material.shader;
 
         grounded = new Vector3(0f, yOffset, 0f);
         raised = grounded + height * GameManager.tileUp;
@@ -47,10 +43,10 @@ public class GamePiece : MonoBehaviour
     {
         if (value)
         {
-            renderer.material = highlightMaterial;
+            renderer.material.shader = GameManager.highlightShader;
         } else
         {
-            renderer.material = startMaterial;
+            renderer.material.shader = startShader;
         }
     }
 
@@ -63,6 +59,8 @@ public class GamePiece : MonoBehaviour
         if (value)
         {
             ghost = Instantiate(this);
+            // TODO: Material ghostMaterial = ghost.renderer.material?
+            ghost.renderer.material.shader = GameManager.ghostShader;
             Color oldColor = ghost.renderer.material.color;
             ghost.renderer.material.color = new Color(oldColor.r, oldColor.g, oldColor.b, ghostAlpha);
 

@@ -5,7 +5,7 @@
         _Color("Main Color", Color) = (1.0, 1.0, 1.0, 1.0)
         _MainTex("Texture", 2D) = "white" {}
         _OutlineColor("Outline Color", Color) = (1.0, 1.0, 1.0, 1.0)
-        _OutlineWidth("Outline Width", Range(0.0, 1.0)) = 0.1
+        _OutlineWidth("Outline Width", Range(0.0, 10.0)) = 5.0
     }
 
     CGINCLUDE
@@ -18,50 +18,10 @@
 
     ENDCG
 
+    // TODO: stencil buffer to block outline with object (https://forum.unity.com/threads/render-an-object-only-if-the-object-is-behind-a-specific-object.429525/)
+
     SubShader
         {
-            Pass // Outline
-            {
-                Tags { "Queue" = "Transparent" "RenderType" = "Transparent" "ForceNoShadowCasting" = "True" "IgnoreProjector" = "True" }
-                Blend SrcAlpha OneMinusSrcAlpha // TODO: this necessary?
-                ZWrite Off
-                Cull Front
-                ZTest Always // Necessary when using Cull Front, to prevent clipping artefacts with the floor
-
-                CGPROGRAM
-                #pragma vertex vert
-                #pragma fragment frag
-
-                struct appdata {
-                    float4 vertex : POSITION;
-                    float4 normal : NORMAL;
-                };
-
-                struct v2f
-                {
-                    float4 vertex : SV_POSITION;
-                };
-
-                fixed4 frag(v2f i) : SV_Target
-                {
-                    return _OutlineColor;
-                }
-
-                v2f vert(appdata v) {
-                    //v.vertex.xyz += normalize(v.normal.xyz) * _OutlineWidth; This approach requires smoothed mesh normals (https://answers.unity.com/questions/625968/unitys-outline-shader-sharp-edges.html)
-                    float norm = length(v.vertex.xyz);
-                    v.vertex.xyz *= 1.0 + _OutlineWidth / norm;
-
-                    v2f o; // Unity uses HLSL which doesn't support most struct constructors
-                    o.vertex = UnityObjectToClipPos(v.vertex);
-                    return o;
-                }
-
-                ENDCG
-            }
-
-            Tags{ "Queue" = "Transparent" } // Without this, outline isn't rendered when the chess piece is behind another object
-
             CGPROGRAM
             #pragma surface surf Standard
 
@@ -77,6 +37,47 @@
             }
 
             ENDCG
+
+            Pass // Outline
+            {
+                Tags { "Queue" = "Transparent" "RenderType" = "Transparent" "ForceNoShadowCasting" = "True" "IgnoreProjector" = "True" }
+                ZWrite Off
+                Blend SrcAlpha OneMinusSrcAlpha
+                Cull Front
+
+                CGPROGRAM
+                #pragma vertex vert
+                #pragma fragment frag
+
+                struct appdata {
+                    float4 vertex : POSITION;
+                    float3 normal : NORMAL;
+                };
+
+                struct v2f
+                {
+                    float4 vertex : SV_POSITION;
+                };
+
+                fixed4 frag(v2f i) : SV_Target
+                {
+                    return _OutlineColor;
+                }
+
+                v2f vert(appdata v) {
+                    // This approach requires smoothed mesh normals (https://answers.unity.com/questions/625968/unitys-outline-shader-sharp-edges.html)
+                    v2f o;
+                    o.vertex = UnityObjectToClipPos(v.vertex);
+                    float3 viewNormal = mul((float3x3)UNITY_MATRIX_IT_MV, v.normal);
+                    float2 clipNormal = TransformViewToProjection(viewNormal.xy);
+                    float norm = length(clipNormal);
+                    // TODO: division by zero
+                    o.vertex.xy += clipNormal * (_OutlineWidth * o.vertex.w * 2.0 / (_ScreenParams.xy * norm)); // TODO: precalculate _OutlineWidth * 2.0 / _ScreenParams.xy
+                    return o;
+                }
+
+                ENDCG
+            }
         }
-        Fallback "Standard" // Needed for shadows
+        Fallback "Standard" // Shadows
 }
