@@ -12,10 +12,8 @@ using PieceData = Board.PieceData;
 using Move = Board.Move;
 
 // TODO:
-// finish outline shader w/ stencil buffer
-// smooth mesh normals
+// finish outline shader w/ stencil buffer, smoothed mesh normals
 // ghost shader (no ZWrite crutch)
-// check out sobel filter: https://www.vertexfragment.com/ramblings/unity-postprocessing-sobel-outline/
 // AI opponent
 // online multiplayer
 // make a more robust coroutine framework?
@@ -23,6 +21,7 @@ using Move = Board.Move;
 // After multiplayer:
 // draw by mutual agreement (add button to each player HUG)
 // additional draw conditions (see Board)
+// check out sobel filter (large meshes): https://www.vertexfragment.com/ramblings/unity-postprocessing-sobel-outline/
 
 public class GameManager : MonoBehaviour
 {
@@ -407,6 +406,7 @@ public class GameManager : MonoBehaviour
     private void Spawn(PieceData piece, Square square)
     {
         GamePiece p = Instantiate(piecePrefabs[(int)piece.type + 6 * (int)piece.color], GetSquareCenter(square), Quaternion.identity);
+        SmoothMeshNormals(p);
         Debug.Assert(p != null);
         Set(square, p);
     }
@@ -497,5 +497,40 @@ public class GameManager : MonoBehaviour
             Debug.DrawLine(boardCorner + tileRight * mouseSquare.file + tileForward * (mouseSquare.rank + 1),
                            boardCorner + tileRight * (mouseSquare.file + 1) + tileForward * mouseSquare.rank);
         }
+    }
+
+    // Fixes duplicate vertex normals for use in the piece highlight shader
+    // TODO: save the modified meshes into the prefabs themselves
+    private void SmoothMeshNormals(GamePiece piece)
+    {
+        MeshFilter meshFilter = piece.GetComponentInChildren<MeshFilter>();
+        Mesh mesh = meshFilter.mesh;
+
+        Debug.Assert(mesh.subMeshCount == 1); // as long as this is true, the label of each vertex in the triangles array should match its index in the following arrays
+        Vector3[] vertices = mesh.vertices;
+        Vector3[] normals = mesh.normals;
+        Debug.Assert(mesh.vertexCount == vertices.Count() && mesh.vertexCount == normals.Count()); // sanity check
+
+        // build dictionary map of duplicates (each set of duplicates is a cycle -> getting the set of duplicates amounts to iterating around the cycle)
+        Dictionary<int, int> map = new Dictionary<int, int>();
+        for (int i = 0; i < mesh.vertexCount; ++i)
+        {
+            // TODO
+        }
+
+        int[] triangles = mesh.triangles; // {1a, 1b, 1c, 2a, 2b, 2c, etc.}
+        
+        Color[] colors = new Color[mesh.vertexCount];
+        while (map.Count > 0)
+        {
+            // TODO: vertices are adjacent iff they share a triangle
+            // Loop through triangles, get all containing
+            // Get the indices of all vertices adjacent to this vertex and its duplicates (loop through triangles)
+            // Average the displacements, normalize the result, and store it in colors at the index of each duplicate (colors[i] = new Color(v.x, v.y, v.z);)
+            // Remove duplicates from map
+        }
+        mesh.colors = colors;
+
+        meshFilter.mesh = mesh;
     }
 }
