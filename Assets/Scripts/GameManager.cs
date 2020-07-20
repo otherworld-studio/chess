@@ -12,7 +12,7 @@ using PieceData = Board.PieceData;
 using Move = Board.Move;
 
 // TODO:
-// finish outline shader w/ stencil buffer, smoothed mesh normals
+// finish outline shader w/ stencil buffer
 // ghost shader (no ZWrite crutch)
 // AI opponent
 // online multiplayer
@@ -138,6 +138,9 @@ public class GameManager : MonoBehaviour
     {
         Debug.Assert(instance == null);
         instance = this;
+
+        foreach (GamePiece p in piecePrefabs)
+            SmoothMeshNormals(p);
 
         gamePieces = new GamePiece[64];
         whitePiecesTaken = new GamePiece[15];
@@ -406,7 +409,6 @@ public class GameManager : MonoBehaviour
     private void Spawn(PieceData piece, Square square)
     {
         GamePiece p = Instantiate(piecePrefabs[(int)piece.type + 6 * (int)piece.color], GetSquareCenter(square), Quaternion.identity);
-        SmoothMeshNormals(p);
         Debug.Assert(p != null);
         Set(square, p);
     }
@@ -504,33 +506,101 @@ public class GameManager : MonoBehaviour
     private void SmoothMeshNormals(GamePiece piece)
     {
         MeshFilter meshFilter = piece.GetComponentInChildren<MeshFilter>();
-        Mesh mesh = meshFilter.mesh;
+        Mesh mesh = meshFilter.sharedMesh;
 
         Debug.Assert(mesh.subMeshCount == 1); // as long as this is true, the label of each vertex in the triangles array should match its index in the following arrays
         Vector3[] vertices = mesh.vertices;
         Vector3[] normals = mesh.normals;
         Debug.Assert(mesh.vertexCount == vertices.Count() && mesh.vertexCount == normals.Count()); // sanity check
+        int[] triangles = mesh.triangles; // {1a, 1b, 1c, 2a, 2b, 2c, etc.}
 
         // build dictionary map of duplicates (each set of duplicates is a cycle -> getting the set of duplicates amounts to iterating around the cycle)
+        // also keep a list of the first index of each cycle/set, the "representative"
         Dictionary<int, int> map = new Dictionary<int, int>();
+        LinkedList<int> representatives = new LinkedList<int>();
         for (int i = 0; i < mesh.vertexCount; ++i)
         {
-            // TODO
+            bool match = false;
+            foreach (int rep in representatives) {
+                if (vertices[i] == vertices[rep])
+                {
+                    map.Add(i, map[rep]);
+                    map[rep] = i;
+                    match = true;
+                }
+            }
+
+            // no matches
+            if (!match)
+            {
+                map.Add(i, i);
+                representatives.AddLast(i);
+            }
         }
 
-        int[] triangles = mesh.triangles; // {1a, 1b, 1c, 2a, 2b, 2c, etc.}
-        
-        Color[] colors = new Color[mesh.vertexCount];
-        while (map.Count > 0)
+        Dictionary<int, Vector3> results = new Dictionary<int, Vector3>();
+        int stopCondition = mesh.triangles.Count();
+        for (int i = 0; i < stopCondition; i += 3)
         {
-            // TODO: vertices are adjacent iff they share a triangle
-            // Loop through triangles, get all containing
-            // Get the indices of all vertices adjacent to this vertex and its duplicates (loop through triangles)
-            // Average the displacements, normalize the result, and store it in colors at the index of each duplicate (colors[i] = new Color(v.x, v.y, v.z);)
-            // Remove duplicates from map
+            int v1 = triangles[i], v2 = triangles[i + 1], v3 = triangles[i + 2];
+            int r1 = -1, r2 = -1, r3 = -1;
+            foreach (int rep in representatives)
+            {
+                if (r1 >= 0 && r2 >= 0 && r3 >= 0)
+                    break;
+
+                if (r1 == -1 && vertices[v1] == vertices[rep])
+                    r1 = rep;
+                else if (r2 == -1 && vertices[v2] == vertices[rep])
+                    r2 = rep;
+                else if (r3 == -1 && vertices[v3] == vertices[rep])
+                    r3 = rep;
+            }
+            Debug.Assert(r1 >= 0 && r2 >= 0 && r3 >= 0);
+
+            Vector3 temp = 2f * vertices[r1] - vertices[r2] - vertices[r3];
+            /* would look better, but Unity does not support :(
+            if (!results.TryAdd(r1, temp))
+                results[r1] += temp;
+            */
+            if (!results.ContainsKey(r1))
+                results.Add(r1, temp);
+            else
+                results[r1] += temp;
+
+            temp = 2f * vertices[r2] - vertices[r3] - vertices[r1];
+            if (!results.ContainsKey(r2))
+                results.Add(r2, temp);
+            else
+                results[r2] += temp;
+
+            temp = 2f * vertices[r3] - vertices[r1] - vertices[r2];
+            if (!results.ContainsKey(r3))
+                results.Add(r3, temp);
+            else
+                results[r3] += temp;
+        }
+        
+        // assign new normals as vertex colors
+        Color[] colors = new Color[mesh.vertexCount];
+        while (representatives.Count > 0)
+        {
+            int rep = representatives.First();
+            Vector3 v = results[rep].normalized;
+            if (v == Vector3.zero)
+                v = normals[rep];
+            Color c = new Color(v.x, v.y, v.z);
+            int i = rep;
+            do
+            {
+                colors[i] = c;
+                i = map[i];
+            } while (i != rep);
+
+            representatives.RemoveFirst();
         }
         mesh.colors = colors;
 
-        meshFilter.mesh = mesh;
+        meshFilter.sharedMesh = mesh;
     }
 }

@@ -19,6 +19,7 @@
     ENDCG
 
     // TODO: stencil buffer to block outline with object (https://forum.unity.com/threads/render-an-object-only-if-the-object-is-behind-a-specific-object.429525/)
+    // TODO: something like ZTest Always to make outline render above all other objects? Would make sense after the stencil buffer
 
     SubShader
         {
@@ -51,7 +52,7 @@
 
                 struct appdata {
                     float4 vertex : POSITION;
-                    float3 normal : NORMAL;
+                    float3 color : COLOR;
                 };
 
                 struct v2f
@@ -65,14 +66,10 @@
                 }
 
                 v2f vert(appdata v) {
-                    // This approach requires smoothed mesh normals (https://answers.unity.com/questions/625968/unitys-outline-shader-sharp-edges.html)
                     v2f o;
                     o.vertex = UnityObjectToClipPos(v.vertex);
-                    float3 viewNormal = mul((float3x3)UNITY_MATRIX_IT_MV, v.normal);
-                    float2 clipNormal = TransformViewToProjection(viewNormal.xy);
-                    float norm = length(clipNormal);
-                    // TODO: division by zero
-                    o.vertex.xy += clipNormal * (_OutlineWidth * o.vertex.w * 2.0 / (_ScreenParams.xy * norm)); // TODO: precalculate _OutlineWidth * 2.0 / _ScreenParams.xy
+                    float3 viewNormal = mul((float3x3)UNITY_MATRIX_IT_MV, v.color);
+                    o.vertex.xy += TransformViewToProjection(viewNormal.xy) * (_OutlineWidth * o.vertex.w * 2.0 / _ScreenParams.xy); // TODO: precalculate _OutlineWidth * 2.0 / _ScreenParams.xy
                     return o;
                 }
 

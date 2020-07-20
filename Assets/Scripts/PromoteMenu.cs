@@ -11,7 +11,7 @@ public class PromoteMenu : MonoBehaviour
     [SerializeField]
     private MeshFilter meshFilter;
 
-    private Mesh mesh;
+    private Mesh boundingMesh;
 
     private const float buttonSize = 50f;
     private const float speed = 10f;
@@ -24,7 +24,7 @@ public class PromoteMenu : MonoBehaviour
         rookButton.sizeDelta = sizeDelta;
         queenButton.sizeDelta = sizeDelta;
 
-        mesh = meshFilter.mesh;
+        boundingMesh = meshFilter.sharedMesh;
     }
 
     void OnEnable()
@@ -116,7 +116,7 @@ public class PromoteMenu : MonoBehaviour
     private Rect GetBoundingBox2D()
     {
         float xMin = float.PositiveInfinity, yMin = float.PositiveInfinity, xMax = 0f, yMax = 0f;
-        foreach (Vector3 v in mesh.vertices)
+        foreach (Vector3 v in boundingMesh.vertices)
         {
             Vector2 pos = RectTransformUtility.WorldToScreenPoint(Camera.main, meshFilter.transform.TransformPoint(v));
 
