@@ -59,8 +59,7 @@ public class GamePiece : MonoBehaviour
         if (value)
         {
             ghost = Instantiate(this);
-            // TODO: Material ghostMaterial = ghost.renderer.material?
-            ghost.renderer.material.shader = GameManager.ghostShader;
+            ghost.renderer.material = GameManager.ghostMaterial;
             Color oldColor = ghost.renderer.material.color;
             ghost.renderer.material.color = new Color(oldColor.r, oldColor.g, oldColor.b, ghostAlpha);
 

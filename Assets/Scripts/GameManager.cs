@@ -12,9 +12,8 @@ using PieceData = Board.PieceData;
 using Move = Board.Move;
 
 // TODO:
-// normals smoothing formula is wrong, fix it (weight by corner angle * area)
-// finish outline shader w/ stencil buffer
-// ghost shader (no ZWrite crutch)
+// finish outline shader w/ stencil buffer or alpha blending
+// calls to renderer.material and meshfilter.mesh mean "it is your responsibility to destroy the automatically instantiated ____ ..."
 // AI opponent
 // online multiplayer
 // make a more robust coroutine framework?
@@ -27,11 +26,13 @@ using Move = Board.Move;
 public class GameManager : MonoBehaviour
 {
     [SerializeField]
-    private List<GamePiece> piecePrefabs;
+    private GamePiece[] piecePrefabs;
     [SerializeField]
     private GameObject highlightPrefab;
     [SerializeField]
-    private Shader outlineShader, transparentShader;
+    private Shader outlineShader;
+    [SerializeField]
+    private Material transparentMaterial;
 
     // TODO: add turnText to HUD, 1 HUD for each player
     [SerializeField]
@@ -124,7 +125,7 @@ public class GameManager : MonoBehaviour
     public static Vector3 boardCorner { get { return boardCenter - 4 * (tileRight + tileForward); } }
 
     public static Shader highlightShader { get { return instance.outlineShader; } }
-    public static Shader ghostShader { get { return instance.transparentShader; } }
+    public static Material ghostMaterial { get { return instance.transparentMaterial; } }
 
     public const float waitInterval = 0.1f;
 
@@ -502,7 +503,7 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    // Fixes duplicate vertex normals for use in the piece highlight shader
+    // Calculates area- and angle-weighted vertex normals for use in the piece highlight shader
     // TODO: save the modified meshes into the prefabs themselves
     private void SmoothMeshNormals(GamePiece piece)
     {
@@ -515,17 +516,17 @@ public class GameManager : MonoBehaviour
         Debug.Assert(mesh.vertexCount == vertices.Count() && mesh.vertexCount == normals.Count()); // sanity check
         int[] triangles = mesh.triangles; // {1a, 1b, 1c, 2a, 2b, 2c, etc.}
 
-        // build dictionary map of duplicates (each set of duplicates is a cycle -> getting the set of duplicates amounts to iterating around the cycle)
+        // build map of duplicates (each set of duplicates is a cycle -> getting the set of duplicates amounts to iterating around the cycle)
         // also keep a list of the first index of each cycle/set, the "representative"
-        Dictionary<int, int> map = new Dictionary<int, int>();
-        LinkedList<int> representatives = new LinkedList<int>();
+        int[] map = new int[mesh.vertexCount];
+        List<int> representatives = new List<int>();
         for (int i = 0; i < mesh.vertexCount; ++i)
         {
             bool match = false;
             foreach (int rep in representatives) {
                 if (vertices[i] == vertices[rep])
                 {
-                    map.Add(i, map[rep]);
+                    map[i] = map[rep];
                     map[rep] = i;
                     match = true;
                 }
@@ -534,71 +535,47 @@ public class GameManager : MonoBehaviour
             // no matches
             if (!match)
             {
-                map.Add(i, i);
-                representatives.AddLast(i);
+                map[i] = i;
+                representatives.Add(i);
             }
         }
 
-        Dictionary<int, Vector3> results = new Dictionary<int, Vector3>();
+        Vector3[] results = new Vector3[mesh.vertexCount];
         int stopCondition = mesh.triangles.Count();
         for (int i = 0; i < stopCondition; i += 3)
         {
-            int v1 = triangles[i], v2 = triangles[i + 1], v3 = triangles[i + 2];
-            int r1 = -1, r2 = -1, r3 = -1;
-            foreach (int rep in representatives)
-            {
-                if (r1 >= 0 && r2 >= 0 && r3 >= 0)
-                    break;
+            int i1 = triangles[i], i2 = triangles[i + 1], i3 = triangles[i + 2];
+            Vector3 v1 = vertices[i1], v2 = vertices[i2], v3 = vertices[i3];
 
-                if (r1 == -1 && vertices[v1] == vertices[rep])
-                    r1 = rep;
-                else if (r2 == -1 && vertices[v2] == vertices[rep])
-                    r2 = rep;
-                else if (r3 == -1 && vertices[v3] == vertices[rep])
-                    r3 = rep;
-            }
-            Debug.Assert(r1 >= 0 && r2 >= 0 && r3 >= 0);
+            Vector3 e1 = v2 - v1, e2 = v3 - v2, e3 = v1 - v3;
 
-            Vector3 temp = 2f * vertices[r1] - vertices[r2] - vertices[r3];
-            /* would look better, but Unity does not support :(
-            if (!results.TryAdd(r1, temp))
-                results[r1] += temp;
-            */
-            if (!results.ContainsKey(r1))
-                results.Add(r1, temp);
-            else
-                results[r1] += temp;
+            Vector3 n = Vector3.Cross(e3, e1); // magnitude proportional to area
+            Debug.Assert(Vector3.Dot(n, normals[i1]) > 0);
 
-            temp = 2f * vertices[r2] - vertices[r3] - vertices[r1];
-            if (!results.ContainsKey(r2))
-                results.Add(r2, temp);
-            else
-                results[r2] += temp;
-
-            temp = 2f * vertices[r3] - vertices[r1] - vertices[r2];
-            if (!results.ContainsKey(r3))
-                results.Add(r3, temp);
-            else
-                results[r3] += temp;
+            float a1 = Vector3.Angle(e1, -e3), a2 = Vector3.Angle(e2, -e1);
+            results[i1] += n * a1;
+            results[i2] += n * a2;
+            results[i3] += n * (180f - a1 - a2);
         }
         
         // assign new normals as vertex colors
         Color[] colors = new Color[mesh.vertexCount];
-        while (representatives.Count > 0)
-        {
-            int rep = representatives.First();
-            Vector3 v = results[rep].normalized;
-            if (v == Vector3.zero)
-                v = normals[rep];
-            Color c = new Color(v.x, v.y, v.z);
+        foreach(int rep in representatives) {
             int i = rep;
+            Vector3 result = Vector3.zero;
+            do
+            {
+                result += results[i];
+                i = map[i];
+            } while (i != rep);
+
+            Vector3 v = result.normalized;
+            Color c = new Color(v.x, v.y, v.z);
             do
             {
                 colors[i] = c;
                 i = map[i];
             } while (i != rep);
-
-            representatives.RemoveFirst();
         }
         mesh.colors = colors;
 

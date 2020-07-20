@@ -559,6 +559,7 @@ MonoBehaviour:
   highlightPrefab: {fileID: 617939250562387958, guid: 8038e4b392fc54d40bbc5de3d87995ce,
     type: 3}
   outlineShader: {fileID: 4800000, guid: ac12fe73b01add646abb8de903ce6ce0, type: 3}
+  transparentMaterial: {fileID: 2100000, guid: d9a34205a7daaa545adf9e47c7338ea4, type: 2}
   turnText: {fileID: 1886675644}
   gameOverText: {fileID: 1715942997}
   winnerText: {fileID: 350786604}

@@ -17,12 +17,16 @@
     uniform float _OutlineWidth;
 
     ENDCG
-
+    
     // TODO: stencil buffer to block outline with object (https://forum.unity.com/threads/render-an-object-only-if-the-object-is-behind-a-specific-object.429525/)
     // TODO: something like ZTest Always to make outline render above all other objects? Would make sense after the stencil buffer
 
     SubShader
         {
+            Stencil {
+                Ref 0
+            }
+
             CGPROGRAM
             #pragma surface surf Standard
 
@@ -41,7 +45,7 @@
 
             Pass // Outline
             {
-                ZWrite Off
+                ZWrite Off // TODO: causing outline to not be rendered in front of scene background?
                 Blend SrcAlpha OneMinusSrcAlpha
                 Cull Front
 
