@@ -41,7 +41,6 @@
 
             Pass // Outline
             {
-                Tags { "Queue" = "Transparent" "RenderType" = "Transparent" "ForceNoShadowCasting" = "True" "IgnoreProjector" = "True" }
                 ZWrite Off
                 Blend SrcAlpha OneMinusSrcAlpha
                 Cull Front

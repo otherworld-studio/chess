@@ -12,6 +12,7 @@ using PieceData = Board.PieceData;
 using Move = Board.Move;
 
 // TODO:
+// normals smoothing formula is wrong, fix it (weight by corner angle * area)
 // finish outline shader w/ stencil buffer
 // ghost shader (no ZWrite crutch)
 // AI opponent

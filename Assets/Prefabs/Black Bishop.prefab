@@ -47,7 +47,6 @@ MonoBehaviour:
   pieceColor: 1
   yOffset: 0.1722311
   renderer: {fileID: 3720298382018700034}
-  outlineMaterial: {fileID: 2100000, guid: 0d91a2b578b029644bbf0b98b443a00e, type: 2}
   promoteMenu: {fileID: 0}
 --- !u!1 &7263959791044707798
 GameObject:

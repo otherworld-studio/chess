@@ -141,5 +141,4 @@ MonoBehaviour:
   pieceColor: 0
   yOffset: 0.1722313
   renderer: {fileID: 816230525592889296}
-  outlineMaterial: {fileID: 2100000, guid: 0d91a2b578b029644bbf0b98b443a00e, type: 2}
   promoteMenu: {fileID: 0}
