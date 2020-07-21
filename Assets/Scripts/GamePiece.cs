@@ -39,6 +39,11 @@ public class GamePiece : MonoBehaviour
         raised = grounded + height * GameManager.tileUp;
     }
 
+    void OnDestroy()
+    {
+        Destroy(renderer.material); // when we first called renderer.material we created a copy which we are responsible for destroying
+    }
+
     public void Highlight(bool value)
     {
         if (value)

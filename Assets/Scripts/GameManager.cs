@@ -12,8 +12,7 @@ using PieceData = Board.PieceData;
 using Move = Board.Move;
 
 // TODO:
-// finish outline shader w/ stencil buffer or alpha blending
-// calls to renderer.material and meshfilter.mesh mean "it is your responsibility to destroy the automatically instantiated ____ ..."
+// finish outline shader (stencil buffer, alpha blending, ZTest, ZWrite)
 // AI opponent
 // online multiplayer
 // make a more robust coroutine framework?
@@ -423,7 +422,7 @@ public class GameManager : MonoBehaviour
             highlight.SetActive(false);
         } else
         {
-            highlight.GetComponent<Renderer>().material.color = color.Value;
+            highlight.GetComponent<Renderer>().sharedMaterial.color = color.Value;
             highlight.SetActive(true);
         }
     }

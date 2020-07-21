@@ -23,10 +23,6 @@
 
     SubShader
         {
-            Stencil {
-                Ref 0
-            }
-
             CGPROGRAM
             #pragma surface surf Standard
 
