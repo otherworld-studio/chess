@@ -10,13 +10,12 @@ public class GamePiece : MonoBehaviour
     [SerializeField]
     private float yOffset = 0f;
     [SerializeField]
-    private Renderer renderer;
+    private Renderer pieceRenderer, outlineRenderer;
     [SerializeField]
     private PromoteMenu promoteMenu;
 
     public PieceColor color { get { return pieceColor; } }
 
-    private Shader startShader;
     private Vector3 grounded, raised;
     private GamePiece ghost;
 
@@ -33,25 +32,20 @@ public class GamePiece : MonoBehaviour
 
     void Awake()
     {
-        startShader = renderer.material.shader;
+        outlineRenderer.GetComponent<MeshFilter>().sharedMesh = pieceRenderer.GetComponent<MeshFilter>().sharedMesh;
 
         grounded = new Vector3(0f, yOffset, 0f);
         raised = grounded + height * GameManager.tileUp;
-    }
-
-    void OnDestroy()
-    {
-        Destroy(renderer.material); // when we first called renderer.material we created a copy which we are responsible for destroying
     }
 
     public void Highlight(bool value)
     {
         if (value)
         {
-            renderer.material.shader = GameManager.highlightShader;
+            outlineRenderer.gameObject.SetActive(true);
         } else
         {
-            renderer.material.shader = startShader;
+            outlineRenderer.gameObject.SetActive(false);
         }
     }
 
@@ -64,13 +58,14 @@ public class GamePiece : MonoBehaviour
         if (value)
         {
             ghost = Instantiate(this);
-            ghost.renderer.material = GameManager.ghostMaterial;
-            Color oldColor = ghost.renderer.material.color;
-            ghost.renderer.material.color = new Color(oldColor.r, oldColor.g, oldColor.b, ghostAlpha);
+            ghost.pieceRenderer.material = GameManager.ghostMaterial;
+            Color oldColor = ghost.pieceRenderer.material.color;
+            ghost.pieceRenderer.material.color = new Color(oldColor.r, oldColor.g, oldColor.b, ghostAlpha);
 
             ascendCoroutine = StartCoroutine(AscendRoutine());
         } else
         {
+            Destroy(ghost.pieceRenderer.material);
             Destroy(ghost.gameObject);
             ghost = null;
 
@@ -122,13 +117,13 @@ public class GamePiece : MonoBehaviour
         float t = 0f;
         while (t < 1f)
         {
-            renderer.transform.localPosition = Vector3.Lerp(from, to, t);
+            pieceRenderer.transform.localPosition = Vector3.Lerp(from, to, t);
             yield return null;
 
             t += Time.deltaTime * speed;
         }
 
-        renderer.transform.localPosition = to;
+        pieceRenderer.transform.localPosition = to;
     }
 
     private IEnumerator GlobalTranslationRoutine(Vector3 from, Vector3 to)

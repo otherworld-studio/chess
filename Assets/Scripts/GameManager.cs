@@ -12,7 +12,6 @@ using PieceData = Board.PieceData;
 using Move = Board.Move;
 
 // TODO:
-// finish outline shader (stencil buffer, alpha blending, ZTest, ZWrite)
 // AI opponent
 // online multiplayer
 // make a more robust coroutine framework?
@@ -28,8 +27,6 @@ public class GameManager : MonoBehaviour
     private GamePiece[] piecePrefabs;
     [SerializeField]
     private GameObject highlightPrefab;
-    [SerializeField]
-    private Shader outlineShader;
     [SerializeField]
     private Material transparentMaterial;
 
@@ -123,7 +120,6 @@ public class GameManager : MonoBehaviour
     public static Vector3 boardCenter { get { return instance.boardObject.transform.position; } }
     public static Vector3 boardCorner { get { return boardCenter - 4 * (tileRight + tileForward); } }
 
-    public static Shader highlightShader { get { return instance.outlineShader; } }
     public static Material ghostMaterial { get { return instance.transparentMaterial; } }
 
     public const float waitInterval = 0.1f;
@@ -506,7 +502,7 @@ public class GameManager : MonoBehaviour
     // TODO: save the modified meshes into the prefabs themselves
     private void SmoothMeshNormals(GamePiece piece)
     {
-        MeshFilter meshFilter = piece.GetComponentInChildren<MeshFilter>();
+        MeshFilter meshFilter = piece.GetComponentInChildren<MeshFilter>(); // TODO
         Mesh mesh = meshFilter.sharedMesh;
 
         Debug.Assert(mesh.subMeshCount == 1); // as long as this is true, the label of each vertex in the triangles array should match its index in the following arrays
@@ -577,7 +573,5 @@ public class GameManager : MonoBehaviour
             } while (i != rep);
         }
         mesh.colors = colors;
-
-        meshFilter.sharedMesh = mesh;
     }
 }
