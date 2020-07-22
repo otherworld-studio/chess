@@ -12,6 +12,7 @@ using PieceData = Board.PieceData;
 using Move = Board.Move;
 
 // TODO:
+// fix smoothed normals
 // AI opponent
 // online multiplayer
 // make a more robust coroutine framework?
@@ -60,6 +61,8 @@ public class GameManager : MonoBehaviour
                 GamePiece selectedPiece = Get(_selectedSquare);
                 selectedPiece.transform.position = GetSquareCenter(_selectedSquare);
                 selectedPiece.Select(false);
+                if (_mouseSquare == _selectedSquare)
+                    selectedPiece.Highlight(true); // TODO: wait for motion to stop
             }
 
             _selectedSquare = value;
@@ -125,7 +128,7 @@ public class GameManager : MonoBehaviour
 
     public const float waitInterval = 0.1f;
 
-    private const float highlightHeight = 0.01f;
+    private const float highlightHeight = 0.001f;
     private const float highlightAlpha = 0.5f;
     private const float ghostAlpha = 0.25f;
 

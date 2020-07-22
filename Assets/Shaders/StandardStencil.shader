@@ -1,23 +1,27 @@
-﻿Shader "Chess/StandardStenciled"
+﻿Shader "Chess/StandardStencil"
 {
     Properties
     {
         _MainTex("Texture", 2D) = "white" {}
+        _StencilMask("Stencil Mask", Int) = 0
     }
 
     CGINCLUDE
 
     uniform sampler2D _MainTex;
+    uniform int _StencilMask;
 
     ENDCG
 
     SubShader
         {
+            // assumes the stencil buffer is clear at the start of each frame
             Stencil {
-                Ref 1
-                WriteMask 1
+                Ref 255
+                WriteMask [_StencilMask]
                 Comp Always
-                Pass Replace
+                Pass Replace // always write
+                ZFail Replace // ALWAYS write
             }
             
             CGPROGRAM
@@ -36,5 +40,5 @@
 
             ENDCG
         }
-        Fallback "Standard"
+        Fallback "Standard" // shadows
 }

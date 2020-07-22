@@ -18,7 +18,7 @@ public class GamePiece : MonoBehaviour
 
     private Vector3 grounded, raised;
     private GamePiece ghost;
-    private Material startMaterial;
+    private Material startMaterial, outlineMaterial;
 
     private Coroutine ascendCoroutine;
     public bool Ascending() { return ascendCoroutine != null; }
@@ -32,20 +32,31 @@ public class GamePiece : MonoBehaviour
 
     void Awake()
     {
-        startMaterial = renderer.sharedMaterial;
+        startMaterial = renderer.material; // this automatically instantiates a new copy of renderer.material
+        outlineMaterial = Instantiate(GameManager.outlineMaterial);
+        outlineMaterial.SetInt("_StencilMask", 1);
+        //outlineMaterial.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.Always);
 
         grounded = new Vector3(0f, yOffset, 0f);
         raised = grounded + height * GameManager.tileUp;
+    }
+
+    void OnDestroy()
+    {
+        Destroy(startMaterial);
+        Destroy(outlineMaterial);
     }
 
     public void Highlight(bool value)
     {
         if (value)
         {
-            renderer.sharedMaterials = new Material[] { startMaterial, GameManager.outlineMaterial };
+            renderer.materials = new Material[] { startMaterial, outlineMaterial }; // this DOES NOT instantiate a new copy of outlineMaterial because it's already been instantiated in Awake()
+            startMaterial.SetInt("_StencilMask", 1);
         } else
         {
-            renderer.sharedMaterials = new Material[] { startMaterial };
+            renderer.materials = new Material[] { startMaterial };
+            startMaterial.SetInt("_StencilMask", 0);
         }
     }
 
@@ -58,11 +69,12 @@ public class GamePiece : MonoBehaviour
         if (value)
         {
             ghost = Instantiate(this);
-            ghost.renderer.sharedMaterial = GameManager.ghostMaterial;
+            ghost.renderer.material = GameManager.ghostMaterial; // this DOES instantiate a new copy of ghostMaterial
 
             ascendCoroutine = StartCoroutine(AscendRoutine());
         } else
         {
+            Destroy(ghost.renderer.material);
             Destroy(ghost.gameObject);
             ghost = null;
 
@@ -178,9 +190,10 @@ public class GamePiece : MonoBehaviour
 
             Vector3 e1 = v2 - v1, e2 = v3 - v2, e3 = v1 - v3;
 
-            Vector3 n = Vector3.Cross(e3, e1); // magnitude proportional to area
+            Vector3 n = Vector3.Cross(e1, -e3); // magnitude proportional to area
             Debug.Assert(Vector3.Dot(n, normals[i1]) > 0);
 
+            // TODO: save time by calculating norms and products manually
             float a1 = Vector3.Angle(e1, -e3), a2 = Vector3.Angle(e2, -e1);
             results[i1] += n * a1;
             results[i2] += n * a2;

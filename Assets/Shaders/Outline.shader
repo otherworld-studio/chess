@@ -3,7 +3,8 @@
     Properties
     {
         _Color("Outline Color", Color) = (1.0, 1.0, 1.0, 1.0)
-        _Width("Outline Width", Range(0.0, 10.0)) = 5.0
+        _Width("Outline Width", Range(0.0, 8.0)) = 4.0
+        _StencilMask("Stencil Mask", Int) = 0
     }
 
     CGINCLUDE
@@ -11,6 +12,7 @@
 
     uniform float4 _Color;
     uniform float _Width;
+    uniform int _StencilMask;
 
     ENDCG
 
@@ -21,14 +23,14 @@
             Pass
             {
                 ZWrite Off
+                ZTest Always // render above other geometry
                 Blend SrcAlpha OneMinusSrcAlpha
                 Cull Front
 
-                // TODO: do we need to manually clear the buffer before writing to it?
                 Stencil {
                     Ref 0
-                    ReadMask 1
-                    Comp Equal
+                    ReadMask [_StencilMask]
+                    Comp Equal // discard if the value read is nonzero
                 }
 
                 CGPROGRAM
@@ -49,7 +51,11 @@
                   v2f o;
                   o.vertex = UnityObjectToClipPos(v.vertex);
                   float3 viewNormal = mul((float3x3)UNITY_MATRIX_IT_MV, v.color);
-                  o.vertex.xy += TransformViewToProjection(viewNormal.xy) * (_Width * o.vertex.w * 2.0 / _ScreenParams.xy); // TODO: precalculate _OutlineWidth * 2.0 / _ScreenParams.xy
+                  float3 clipNormal = TransformViewToProjection(viewNormal);
+                  float norm = length(clipNormal.xy);
+                  if (norm != 0.0)
+                    o.vertex.xy += clipNormal.xy * (_Width * o.vertex.w * 2.0 / (norm * _ScreenParams.xy)); // TODO: precalculate _OutlineWidth * 2.0 / _ScreenParams.xy
+                  
                   return o;
                 }
 
