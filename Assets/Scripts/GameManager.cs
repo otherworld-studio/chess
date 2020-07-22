@@ -28,7 +28,7 @@ public class GameManager : MonoBehaviour
     [SerializeField]
     private GameObject highlightPrefab;
     [SerializeField]
-    private Material transparentMaterial;
+    private Material _outlineMaterial, _ghostMaterial;
 
     // TODO: add turnText to HUD, 1 HUD for each player
     [SerializeField]
@@ -120,12 +120,14 @@ public class GameManager : MonoBehaviour
     public static Vector3 boardCenter { get { return instance.boardObject.transform.position; } }
     public static Vector3 boardCorner { get { return boardCenter - 4 * (tileRight + tileForward); } }
 
-    public static Material ghostMaterial { get { return instance.transparentMaterial; } }
+    public static Material outlineMaterial { get { return instance._outlineMaterial; } }
+    public static Material ghostMaterial { get { return instance._ghostMaterial; } }
 
     public const float waitInterval = 0.1f;
 
     private const float highlightHeight = 0.01f;
     private const float highlightAlpha = 0.5f;
+    private const float ghostAlpha = 0.25f;
 
     private static readonly Color mouseColor = new Color(1f, 0.92f, 0.016f, highlightAlpha);
     private static readonly Color legalColor = new Color(0f, 1f, 0f, highlightAlpha);
@@ -137,7 +139,10 @@ public class GameManager : MonoBehaviour
         instance = this;
 
         foreach (GamePiece p in piecePrefabs)
-            SmoothMeshNormals(p);
+            p.SmoothMeshNormals();
+
+        Color oldColor = ghostMaterial.color;
+        ghostMaterial.color = new Color(oldColor.r, oldColor.g, oldColor.b, ghostAlpha);
 
         gamePieces = new GamePiece[64];
         whitePiecesTaken = new GamePiece[15];
@@ -496,82 +501,5 @@ public class GameManager : MonoBehaviour
             Debug.DrawLine(boardCorner + tileRight * mouseSquare.file + tileForward * (mouseSquare.rank + 1),
                            boardCorner + tileRight * (mouseSquare.file + 1) + tileForward * mouseSquare.rank);
         }
-    }
-
-    // Calculates area- and angle-weighted vertex normals for use in the piece highlight shader
-    // TODO: save the modified meshes into the prefabs themselves
-    private void SmoothMeshNormals(GamePiece piece)
-    {
-        MeshFilter meshFilter = piece.GetComponentInChildren<MeshFilter>(); // TODO
-        Mesh mesh = meshFilter.sharedMesh;
-
-        Debug.Assert(mesh.subMeshCount == 1); // as long as this is true, the label of each vertex in the triangles array should match its index in the following arrays
-        Vector3[] vertices = mesh.vertices;
-        Vector3[] normals = mesh.normals;
-        Debug.Assert(mesh.vertexCount == vertices.Count() && mesh.vertexCount == normals.Count()); // sanity check
-        int[] triangles = mesh.triangles; // {1a, 1b, 1c, 2a, 2b, 2c, etc.}
-
-        // build map of duplicates (each set of duplicates is a cycle -> getting the set of duplicates amounts to iterating around the cycle)
-        // also keep a list of the first index of each cycle/set, the "representative"
-        int[] map = new int[mesh.vertexCount];
-        List<int> representatives = new List<int>();
-        for (int i = 0; i < mesh.vertexCount; ++i)
-        {
-            bool match = false;
-            foreach (int rep in representatives) {
-                if (vertices[i] == vertices[rep])
-                {
-                    map[i] = map[rep];
-                    map[rep] = i;
-                    match = true;
-                }
-            }
-
-            // no matches
-            if (!match)
-            {
-                map[i] = i;
-                representatives.Add(i);
-            }
-        }
-
-        Vector3[] results = new Vector3[mesh.vertexCount];
-        int stopCondition = mesh.triangles.Count();
-        for (int i = 0; i < stopCondition; i += 3)
-        {
-            int i1 = triangles[i], i2 = triangles[i + 1], i3 = triangles[i + 2];
-            Vector3 v1 = vertices[i1], v2 = vertices[i2], v3 = vertices[i3];
-
-            Vector3 e1 = v2 - v1, e2 = v3 - v2, e3 = v1 - v3;
-
-            Vector3 n = Vector3.Cross(e3, e1); // magnitude proportional to area
-            Debug.Assert(Vector3.Dot(n, normals[i1]) > 0);
-
-            float a1 = Vector3.Angle(e1, -e3), a2 = Vector3.Angle(e2, -e1);
-            results[i1] += n * a1;
-            results[i2] += n * a2;
-            results[i3] += n * (180f - a1 - a2);
-        }
-        
-        // assign new normals as vertex colors
-        Color[] colors = new Color[mesh.vertexCount];
-        foreach(int rep in representatives) {
-            int i = rep;
-            Vector3 result = Vector3.zero;
-            do
-            {
-                result += results[i];
-                i = map[i];
-            } while (i != rep);
-
-            Vector3 v = result.normalized;
-            Color c = new Color(v.x, v.y, v.z);
-            do
-            {
-                colors[i] = c;
-                i = map[i];
-            } while (i != rep);
-        }
-        mesh.colors = colors;
     }
 }

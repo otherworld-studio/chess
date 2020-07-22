@@ -24,6 +24,13 @@
                 Blend SrcAlpha OneMinusSrcAlpha
                 Cull Front
 
+                // TODO: do we need to manually clear the buffer before writing to it?
+                Stencil {
+                    Ref 0
+                    ReadMask 1
+                    Comp Equal
+                }
+
                 CGPROGRAM
                 #pragma vertex vert
                 #pragma fragment frag
