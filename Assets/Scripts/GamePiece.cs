@@ -20,15 +20,12 @@ public class GamePiece : MonoBehaviour
     private GamePiece ghost;
     private Material startMaterial, outlineMaterial;
 
-    private Coroutine ascendCoroutine;
-    public bool Ascending() { return ascendCoroutine != null; }
-    private Coroutine descendCoroutine;
-    public bool Descending() { return descendCoroutine != null; }
-    private Coroutine sidewaysCoroutine;
-    public bool MovingSideways() { return sidewaysCoroutine != null; }
+    private Coroutine ascendCoroutine, descendCoroutine, sidewaysCoroutine;
+
+    public bool isMoving { get { return ascendCoroutine != null || descendCoroutine != null || sidewaysCoroutine != null; } }
 
     private const float height = 2.3f; // Height of picked up pieces, in board tiles
-    private const float speed = 10f; // Reciprocal of duration in seconds
+    private const float speed = 8f; // Reciprocal of duration in seconds
 
     void Awake()
     {
@@ -156,7 +153,7 @@ public class GamePiece : MonoBehaviour
 
     private IEnumerator RequestPromotionRoutine()
     {
-        while (Ascending() || Descending() || MovingSideways())
+        while (isMoving)
             yield return new WaitForSeconds(GameManager.waitInterval);
 
         renderer.GetComponent<PromoteMenu>().enabled = true;
@@ -170,7 +167,7 @@ public class GamePiece : MonoBehaviour
     }
 
     // Calculates area- and angle-weighted vertex normals for use in the piece outline shader. Only needs to be called once for each type of piece
-    // TODO: save the modified meshes into the prefabs themselves
+    // TODO: save the modified meshes into the prefabs themselves (and mark each mesh as not readable)
     public void SmoothMeshNormals()
     {
         Mesh mesh = renderer.GetComponent<MeshFilter>().sharedMesh;

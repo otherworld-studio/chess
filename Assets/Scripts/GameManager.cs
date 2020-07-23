@@ -12,8 +12,6 @@ using PieceData = Board.PieceData;
 using Move = Board.Move;
 
 // TODO:
-// promote menu not waiting to appear when pawn reaches final rank without taking a piece
-// important TODOs in UpdateScene
 // AI opponent
 // online multiplayer
 // make a more robust coroutine framework?
@@ -50,8 +48,8 @@ public class GameManager : MonoBehaviour
     private bool resigned;
     private List<GameObject> highlighted; // TODO: assist mode?
 
+    // handles square and piece selection animation automatically; this should be null whenever UpdateScene is called
     private Square _selectedSquare;
-    private GamePiece _selectedPiece;
     private Square selectedSquare {
         get { return _selectedSquare; }
         set {
@@ -60,26 +58,14 @@ public class GameManager : MonoBehaviour
             
             if (_selectedSquare != null) // a piece was already selected
             {
-                if (Get(_selectedSquare) == _selectedPiece) // failed to move the piece
-                    _selectedPiece.transform.position = GetSquareCenter(_selectedSquare);
-                _selectedPiece.Select(false);
-                _selectedPiece = null;
+                GamePiece selectedPiece = Get(_selectedSquare);
+                selectedPiece.transform.position = GetSquareCenter(_selectedSquare);
+                selectedPiece.Select(false);
             }
 
             _selectedSquare = value;
             if (_selectedSquare != null)
-            {
-                _selectedPiece = Get(_selectedSquare);
-                _selectedPiece.Highlight(false);
-                _selectedPiece.Select(true);
-            }
-            else if (_mouseSquare != null)
-            {
-                GamePiece mousePiece = Get(_mouseSquare);
-                if (mousePiece != null)
-                    mousePiece.Highlight(true);
-                Highlight(_mouseSquare, mouseColor);
-            }
+                Get(_selectedSquare).Select(true);
         }
     }
 
@@ -107,7 +93,7 @@ public class GameManager : MonoBehaviour
 
                 if (_selectedSquare != null)
                 {
-                    _selectedPiece.transform.position = GetSquareCenter(_mouseSquare);
+                    Get(_selectedSquare).transform.position = GetSquareCenter(_mouseSquare);
                 }
 
                 if (_mouseSquare != _selectedSquare)
@@ -183,20 +169,40 @@ public class GameManager : MonoBehaviour
                 if (selectedSquare == null) // clicked on the board, but no previously selected square
                 {
                     GamePiece g = Get(mouseSquare);
-                    if (g != null && g.color == board.whoseTurn)
-                        selectedSquare = mouseSquare; // only select if it's one of the current player's pieces
+                    if (g != null && g.color == board.whoseTurn) // only select if it's one of the current player's pieces
+                    {
+                        Square temp = mouseSquare;
+                        mouseSquare = null; // remove highlight before selecting
+                        selectedSquare = temp;
+                    }
                 }
                 else if (mouseSquare == selectedSquare)
                 {
                     selectedSquare = null;
+                    mouseSquare = null; // ensures the piece at mouseSquare can be re-highlighted on next update
                 }
                 else // the player has attempted to make a move
                 {
                     Move move = new Move(selectedSquare, mouseSquare);
                     if (board.MakeMove(move))
                     {
-                        UpdateScene(move, (board.sideEffect != null) ? new List<Move>() { board.sideEffect.Value } : null); // call before selectedSquare = null to fix piece highlighting
                         selectedSquare = null;
+                        mouseSquare = null; // ensures the piece at mouseSquare can be re-highlighted on next update
+
+                        GamePiece g = Get(move.from), h = Get(move.to);
+                        g.transform.position = GetSquareCenter(move.to);
+                        if (h != null)
+                        {
+                            Take(move.to);
+                            waitForPiecesCoroutine = StartCoroutine(WaitForPiecesRoutine(new List<GamePiece>() { g, h }));
+                        } else
+                        {
+                            waitForPiecesCoroutine = StartCoroutine(WaitForPiecesRoutine(new List<GamePiece>() { g }));
+                        }
+                        Set(move.from, null);
+                        Set(move.to, g);
+
+                        UpdateScene((board.sideEffect != null) ? new List<Move>() { board.sideEffect.Value } : null);
                     }
                 }
             }
@@ -260,7 +266,7 @@ public class GameManager : MonoBehaviour
         bool success = instance.board.Promote(type);
         Debug.Assert(success);
 
-        instance.UpdateScene(null, new List<Move>() { new Move(needsPromotion, needsPromotion, type) });
+        instance.UpdateScene(new List<Move>() { new Move(needsPromotion, needsPromotion, type) });
     }
 
     public void Resign(int player)
@@ -282,31 +288,28 @@ public class GameManager : MonoBehaviour
         gameOverMenu.SetActive(true);
     }
 
-    private void UpdateScene(Move? humanMove = null, List<Move> updates = null)
+    private void UpdateScene(List<Move> updates = null)
     {
-        if (humanMove != null)
-        {
-            Move move = humanMove.Value;
-
-            GamePiece g = Get(move.from), h = Get(move.to);
-            if (h != null)
-                Take(move.to);
-
-            Set(move.from, null);
-            Set(move.to, g);
-
-            g.transform.position = GetSquareCenter(move.to);
-            // TODO: wait on pieces to stop moving
-        }
-
         updateSceneCoroutine = StartCoroutine(UpdateSceneRoutine(updates));
+    }
+
+    private Coroutine waitForPiecesCoroutine;
+    private IEnumerator WaitForPiecesRoutine(List<GamePiece> pieces)
+    {
+        foreach (GamePiece p in pieces)
+            while (p.isMoving)
+                yield return null;
+
+        waitForPiecesCoroutine = null;
     }
 
     private Coroutine updateSceneCoroutine;
     private IEnumerator UpdateSceneRoutine(List<Move> updates = null)
     {
+        while (waitForPiecesCoroutine != null)
+            yield return null;
+
         // For handling en passants, human promotions, castles, and AI moves
-        // TODO: turn off square and piece highlighting during this process
         if (updates != null)
         {
             foreach (Move m in updates)
@@ -315,7 +318,7 @@ public class GameManager : MonoBehaviour
                 {
                     GamePiece g = Get(m.from);
                     Take(m.from);
-                    while (g.Ascending() || g.Descending() || g.MovingSideways())
+                    while (g.isMoving)
                         yield return null;
                 }
                 else if (m.to == m.from) // promotion
@@ -327,16 +330,14 @@ public class GameManager : MonoBehaviour
                 {
                     GamePiece g = Get(m.from);
                     g.Move(GetSquareCenter(m.from), GetSquareCenter(m.to));
-                    while (g.Ascending() || g.MovingSideways())
-                        yield return null;
                     GamePiece h = Get(m.to);
                     if (h != null)
                     {
                         Take(m.to);
-                        while (h.Ascending() || h.Descending() || h.MovingSideways())
+                        while (h.isMoving)
                             yield return null;
                     }
-                    while (g.Descending())
+                    while (g.isMoving)
                         yield return null;
                     Set(m.from, null);
                     Set(m.to, g);
