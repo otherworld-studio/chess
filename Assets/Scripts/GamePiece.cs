@@ -177,11 +177,11 @@ public class GamePiece : MonoBehaviour
 
         Debug.Assert(mesh.subMeshCount == 1); // as long as this is true, the label of each vertex in the triangles array should match its index in the following arrays
         Vector3[] vertices = mesh.vertices;
-        Vector3[] normals = mesh.normals;
-        Debug.Assert(mesh.vertexCount == vertices.Count() && mesh.vertexCount == normals.Count()); // sanity check
+        Debug.Assert(mesh.vertexCount == vertices.Count()); // sanity check
         int[] triangles = mesh.triangles; // {1a, 1b, 1c, 2a, 2b, 2c, etc.}
 
         Vector3[] results = new Vector3[mesh.vertexCount];
+        Debug.Assert(results[0] == Vector3.zero);
         int stopCondition = mesh.triangles.Count();
         for (int i = 0; i < stopCondition; i += 3)
         {
@@ -191,7 +191,6 @@ public class GamePiece : MonoBehaviour
             Vector3 e1 = v2 - v1, e2 = v3 - v2, e3 = v1 - v3;
 
             Vector3 n = Vector3.Cross(e1, -e3); // magnitude proportional to area
-            Debug.Assert(Vector3.Dot(n, normals[i1]) > 0);
 
             // TODO: save time by calculating norms and products manually
             float a1 = Vector3.Angle(e1, -e3), a2 = Vector3.Angle(e2, -e1);

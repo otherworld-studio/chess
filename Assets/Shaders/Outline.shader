@@ -22,6 +22,7 @@
 
             Pass
             {
+                Tags { "LightMode" = "Always" }
                 ZWrite Off
                 ZTest Always // render above other geometry
                 Blend SrcAlpha OneMinusSrcAlpha
@@ -54,7 +55,7 @@
                   float3 clipNormal = TransformViewToProjection(viewNormal);
                   float norm = length(clipNormal.xy);
                   if (norm != 0.0)
-                    o.vertex.xy += clipNormal.xy * (_Width * o.vertex.w * 2.0 / (norm * _ScreenParams.xy)); // TODO: precalculate _OutlineWidth * 2.0 / _ScreenParams.xy
+                    o.vertex.xy += clipNormal.xy * (_Width * o.vertex.w * 2.0 / (norm * _ScreenParams.xy)); // TODO: precalculate _Width * 2.0 / _ScreenParams.xy
                   
                   return o;
                 }
