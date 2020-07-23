@@ -12,9 +12,6 @@ using PieceData = Board.PieceData;
 using Move = Board.Move;
 
 // TODO:
-// make a better outline shader which converts fragment to screen space, and projects outward in a circle? (https://www.videopoetics.com/tutorials/pixel-perfect-outline-shaders-unity/)
-// or https://www.vertexfragment.com/ramblings/unity-postprocessing-sobel-outline/
-// deal with invisible piece rendering problem properly (without ZWrite crutch)
 // AI opponent
 // online multiplayer
 // make a more robust coroutine framework?
@@ -22,15 +19,16 @@ using Move = Board.Move;
 // After multiplayer:
 // draw by mutual agreement (add button to each player HUG)
 // additional draw conditions (see Board)
+// check out sobel filter (large meshes): https://www.vertexfragment.com/ramblings/unity-postprocessing-sobel-outline/
 
 public class GameManager : MonoBehaviour
 {
     [SerializeField]
-    private List<GamePiece> piecePrefabs;
+    private GamePiece[] piecePrefabs;
     [SerializeField]
     private GameObject highlightPrefab;
     [SerializeField]
-    private Shader outlineShader;
+    private Material _outlineMaterial, _ghostMaterial;
 
     // TODO: add turnText to HUD, 1 HUD for each player
     [SerializeField]
@@ -50,6 +48,7 @@ public class GameManager : MonoBehaviour
     private bool resigned;
     private List<GameObject> highlighted; // TODO: assist mode?
 
+    // handles square and piece selection animation automatically; this should be null whenever UpdateScene is called
     private Square _selectedSquare;
     private Square selectedSquare {
         get { return _selectedSquare; }
@@ -66,11 +65,7 @@ public class GameManager : MonoBehaviour
 
             _selectedSquare = value;
             if (_selectedSquare != null)
-            {
-                GamePiece selectedPiece = Get(_selectedSquare);
-                selectedPiece.Highlight(false);
-                selectedPiece.Select(true);
-            }
+                Get(_selectedSquare).Select(true);
         }
     }
 
@@ -122,12 +117,14 @@ public class GameManager : MonoBehaviour
     public static Vector3 boardCenter { get { return instance.boardObject.transform.position; } }
     public static Vector3 boardCorner { get { return boardCenter - 4 * (tileRight + tileForward); } }
 
-    public static Shader highlightShader { get { return instance.outlineShader; } }
+    public static Material outlineMaterial { get { return instance._outlineMaterial; } }
+    public static Material ghostMaterial { get { return instance._ghostMaterial; } }
 
     public const float waitInterval = 0.1f;
 
-    private const float highlightHeight = 0.01f;
+    private const float highlightHeight = 0.001f;
     private const float highlightAlpha = 0.5f;
+    private const float ghostAlpha = 0.25f;
 
     private static readonly Color mouseColor = new Color(1f, 0.92f, 0.016f, highlightAlpha);
     private static readonly Color legalColor = new Color(0f, 1f, 0f, highlightAlpha);
@@ -137,6 +134,12 @@ public class GameManager : MonoBehaviour
     {
         Debug.Assert(instance == null);
         instance = this;
+
+        foreach (GamePiece p in piecePrefabs)
+            p.SmoothMeshNormals();
+
+        Color oldColor = ghostMaterial.color;
+        ghostMaterial.color = new Color(oldColor.r, oldColor.g, oldColor.b, ghostAlpha);
 
         gamePieces = new GamePiece[64];
         whitePiecesTaken = new GamePiece[15];
@@ -166,12 +169,17 @@ public class GameManager : MonoBehaviour
                 if (selectedSquare == null) // clicked on the board, but no previously selected square
                 {
                     GamePiece g = Get(mouseSquare);
-                    if (g != null && g.color == board.whoseTurn)
-                        selectedSquare = mouseSquare; // only select if it's one of the current player's pieces
+                    if (g != null && g.color == board.whoseTurn) // only select if it's one of the current player's pieces
+                    {
+                        Square temp = mouseSquare;
+                        mouseSquare = null; // remove highlight before selecting
+                        selectedSquare = temp;
+                    }
                 }
                 else if (mouseSquare == selectedSquare)
                 {
                     selectedSquare = null;
+                    mouseSquare = null; // ensures the piece at mouseSquare can be re-highlighted on next update
                 }
                 else // the player has attempted to make a move
                 {
@@ -179,7 +187,22 @@ public class GameManager : MonoBehaviour
                     if (board.MakeMove(move))
                     {
                         selectedSquare = null;
-                        UpdateScene(move, (board.sideEffect != null) ? new List<Move>() { board.sideEffect.Value } : null);
+                        mouseSquare = null; // ensures the piece at mouseSquare can be re-highlighted on next update
+
+                        GamePiece g = Get(move.from), h = Get(move.to);
+                        g.transform.position = GetSquareCenter(move.to);
+                        if (h != null)
+                        {
+                            Take(move.to);
+                            waitForPiecesCoroutine = StartCoroutine(WaitForPiecesRoutine(new List<GamePiece>() { g, h }));
+                        } else
+                        {
+                            waitForPiecesCoroutine = StartCoroutine(WaitForPiecesRoutine(new List<GamePiece>() { g }));
+                        }
+                        Set(move.from, null);
+                        Set(move.to, g);
+
+                        UpdateScene((board.sideEffect != null) ? new List<Move>() { board.sideEffect.Value } : null);
                     }
                 }
             }
@@ -243,7 +266,7 @@ public class GameManager : MonoBehaviour
         bool success = instance.board.Promote(type);
         Debug.Assert(success);
 
-        instance.UpdateScene(null, new List<Move>() { new Move(needsPromotion, needsPromotion, type) });
+        instance.UpdateScene(new List<Move>() { new Move(needsPromotion, needsPromotion, type) });
     }
 
     public void Resign(int player)
@@ -265,32 +288,26 @@ public class GameManager : MonoBehaviour
         gameOverMenu.SetActive(true);
     }
 
-    private void UpdateScene(Move? humanMove = null, List<Move> updates = null)
+    private void UpdateScene(List<Move> updates = null)
     {
-        updateSceneCoroutine = StartCoroutine(UpdateSceneRoutine(humanMove, updates));
+        updateSceneCoroutine = StartCoroutine(UpdateSceneRoutine(updates));
+    }
+
+    private Coroutine waitForPiecesCoroutine;
+    private IEnumerator WaitForPiecesRoutine(List<GamePiece> pieces)
+    {
+        foreach (GamePiece p in pieces)
+            while (p.isMoving)
+                yield return null;
+
+        waitForPiecesCoroutine = null;
     }
 
     private Coroutine updateSceneCoroutine;
-    private IEnumerator UpdateSceneRoutine(Move? humanMove = null, List<Move> updates = null)
+    private IEnumerator UpdateSceneRoutine(List<Move> updates = null)
     {
-        if (humanMove != null) // Don't call GamePiece.Move() on this move
-        {
-            Move move = humanMove.Value;
-
-            GamePiece g = Get(move.from);
-            g.transform.position = GetSquareCenter(move.to); // Already in motion from GamePiece.Select(false)
-            GamePiece h = Get(move.to);
-            if (h != null)
-            {
-                Take(move.to);
-                while (h.Ascending() || h.Descending() || h.MovingSideways())
-                    yield return null;
-            }
-            while (g.Descending())
-                yield return null;
-            Set(move.from, null);
-            Set(move.to, g);
-        }
+        while (waitForPiecesCoroutine != null)
+            yield return null;
 
         // For handling en passants, human promotions, castles, and AI moves
         if (updates != null)
@@ -301,7 +318,7 @@ public class GameManager : MonoBehaviour
                 {
                     GamePiece g = Get(m.from);
                     Take(m.from);
-                    while (g.Ascending() || g.Descending() || g.MovingSideways())
+                    while (g.isMoving)
                         yield return null;
                 }
                 else if (m.to == m.from) // promotion
@@ -313,16 +330,14 @@ public class GameManager : MonoBehaviour
                 {
                     GamePiece g = Get(m.from);
                     g.Move(GetSquareCenter(m.from), GetSquareCenter(m.to));
-                    while (g.Ascending() || g.MovingSideways())
-                        yield return null;
                     GamePiece h = Get(m.to);
                     if (h != null)
                     {
                         Take(m.to);
-                        while (h.Ascending() || h.Descending() || h.MovingSideways())
+                        while (h.isMoving)
                             yield return null;
                     }
-                    while (g.Descending())
+                    while (g.isMoving)
                         yield return null;
                     Set(m.from, null);
                     Set(m.to, g);
@@ -417,7 +432,7 @@ public class GameManager : MonoBehaviour
             highlight.SetActive(false);
         } else
         {
-            highlight.GetComponent<Renderer>().material.color = color.Value;
+            highlight.GetComponent<Renderer>().sharedMaterial.color = color.Value;
             highlight.SetActive(true);
         }
     }

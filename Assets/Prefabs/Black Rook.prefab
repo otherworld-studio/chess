@@ -40,7 +40,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1788869067966896180}
-  m_Mesh: {fileID: 4300000, guid: c61872173bf5220469786c549644854f, type: 3}
+  m_Mesh: {fileID: 661607190979499167, guid: 36a5ead37d567c941967a5fa473f8a71, type: 3}
 --- !u!23 &1788869067969140716
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -93,7 +93,7 @@ MeshCollider:
   serializedVersion: 3
   m_Convex: 0
   m_CookingOptions: 14
-  m_Mesh: {fileID: 4300000, guid: c61872173bf5220469786c549644854f, type: 3}
+  m_Mesh: {fileID: 661607190979499167, guid: 36a5ead37d567c941967a5fa473f8a71, type: 3}
 --- !u!1 &4919702283985663065
 GameObject:
   m_ObjectHideFlags: 0
@@ -119,7 +119,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4919702283985663065}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 431.28677, y: 562.77313, z: -1490.1521}
+  m_LocalPosition: {x: 7.208134, y: 0, z: 2.1465237}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children:
   - {fileID: 1788869067967199456}
@@ -141,5 +141,3 @@ MonoBehaviour:
   pieceColor: 1
   yOffset: 0.1722313
   renderer: {fileID: 1788869067969140716}
-  outlineMaterial: {fileID: 2100000, guid: 0d91a2b578b029644bbf0b98b443a00e, type: 2}
-  promoteMenu: {fileID: 0}

@@ -2,31 +2,37 @@
 {
     Properties
     {
-        _Color("Main Color", Color) = (1.0, 1.0, 1.0, 1.0)
-        _MainTex("Texture", 2D) = "white" {}
-        _OutlineColor("Outline Color", Color) = (1.0, 1.0, 1.0, 1.0)
-        _OutlineWidth("Outline Width", Range(0.0, 1.0)) = 0.1
+        _Color("Outline Color", Color) = (1.0, 1.0, 1.0, 1.0)
+        _Width("Outline Width", Range(0.0, 8.0)) = 4.0
+        _StencilMask("Stencil Mask", Int) = 0
     }
 
     CGINCLUDE
     #include "UnityCG.cginc"
 
     uniform float4 _Color;
-    uniform sampler2D _MainTex;
-    uniform float4 _OutlineColor;
-    uniform float _OutlineWidth;
+    uniform float _Width;
+    uniform int _StencilMask;
 
     ENDCG
 
     SubShader
         {
-            Pass // Outline
+            Tags { "Queue" = "Transparent" "RenderType" = "Transparent" "ForceNoShadowCasting" = "True" "IgnoreProjector" = "True"}
+
+            Pass
             {
-                Tags { "Queue" = "Transparent" "RenderType" = "Transparent" "ForceNoShadowCasting" = "True" "IgnoreProjector" = "True" }
-                Blend SrcAlpha OneMinusSrcAlpha // TODO: this necessary?
+                Tags { "LightMode" = "Always" }
                 ZWrite Off
+                ZTest Always // render above other geometry
+                Blend SrcAlpha OneMinusSrcAlpha
                 Cull Front
-                ZTest Always // Necessary when using Cull Front, to prevent clipping artefacts with the floor
+
+                Stencil {
+                    Ref 0
+                    ReadMask [_StencilMask]
+                    Comp Equal // discard if the value read is nonzero
+                }
 
                 CGPROGRAM
                 #pragma vertex vert
@@ -34,7 +40,7 @@
 
                 struct appdata {
                     float4 vertex : POSITION;
-                    float4 normal : NORMAL;
+                    float3 color : COLOR;
                 };
 
                 struct v2f
@@ -42,41 +48,24 @@
                     float4 vertex : SV_POSITION;
                 };
 
-                fixed4 frag(v2f i) : SV_Target
-                {
-                    return _OutlineColor;
+                v2f vert(appdata v) {
+                  v2f o;
+                  o.vertex = UnityObjectToClipPos(v.vertex);
+                  float3 viewNormal = mul((float3x3)UNITY_MATRIX_IT_MV, v.color);
+                  float3 clipNormal = TransformViewToProjection(viewNormal);
+                  float norm = length(clipNormal.xy);
+                  if (norm != 0.0)
+                    o.vertex.xy += clipNormal.xy * (_Width * o.vertex.w * 2.0 / (norm * _ScreenParams.xy)); // TODO: precalculate _Width * 2.0 / _ScreenParams.xy
+                  
+                  return o;
                 }
 
-                v2f vert(appdata v) {
-                    //v.vertex.xyz += normalize(v.normal.xyz) * _OutlineWidth; This approach requires smoothed mesh normals (https://answers.unity.com/questions/625968/unitys-outline-shader-sharp-edges.html)
-                    float norm = length(v.vertex.xyz);
-                    v.vertex.xyz *= 1.0 + _OutlineWidth / norm;
-
-                    v2f o; // Unity uses HLSL which doesn't support most struct constructors
-                    o.vertex = UnityObjectToClipPos(v.vertex);
-                    return o;
+                fixed4 frag(v2f i) : SV_Target
+                {
+                    return _Color;
                 }
 
                 ENDCG
             }
-
-            Tags{ "Queue" = "Transparent" } // Without this, outline isn't rendered when the chess piece is behind another object
-
-            CGPROGRAM
-            #pragma surface surf Standard
-
-            struct Input {
-                float2 uv_MainTex;
-                float4 color : COLOR;
-            };
-
-            void surf(Input IN, inout SurfaceOutputStandard o) {
-                fixed4 c = tex2D(_MainTex, IN.uv_MainTex) * _Color;
-                o.Albedo = c.rgb;
-                o.Alpha = c.a;
-            }
-
-            ENDCG
         }
-        Fallback "Standard" // Needed for shadows
 }
