@@ -1,7 +1,6 @@
 ﻿using System.Collections;
 using UnityEngine;
 
-// We don't attach this to the actual Canvas because we disable it when not visible
 public class PromoteMenu : MonoBehaviour
 {
     [SerializeField]
@@ -9,9 +8,7 @@ public class PromoteMenu : MonoBehaviour
     [SerializeField]
     private RectTransform knightButton, bishopButton, rookButton, queenButton;
     [SerializeField]
-    private MeshFilter meshFilter;
-
-    private Mesh mesh;
+    private MeshFilter boundsMeshFilter;
 
     private const float buttonSize = 50f;
     private const float speed = 10f;
@@ -23,8 +20,6 @@ public class PromoteMenu : MonoBehaviour
         bishopButton.sizeDelta = sizeDelta;
         rookButton.sizeDelta = sizeDelta;
         queenButton.sizeDelta = sizeDelta;
-
-        mesh = meshFilter.mesh;
     }
 
     void OnEnable()
@@ -36,10 +31,10 @@ public class PromoteMenu : MonoBehaviour
     
     void OnDisable()
     {
+        canvas.SetActive(false);
         if (animateButtonsCoroutine != null)
             StopCoroutine(animateButtonsCoroutine);
         animateButtonsCoroutine = null;
-        canvas.SetActive(false);
     }
 
     void OnBecameVisible()
@@ -47,7 +42,7 @@ public class PromoteMenu : MonoBehaviour
         if (enabled)
         {
             canvas.SetActive(true);
-            UpdateButtons(); // Because Update() isn't called after OnBecameVisible in the same frame 
+            UpdateButtons(); // because Update() isn't called after OnBecameVisible in the same frame
         }
     }
 
@@ -116,9 +111,9 @@ public class PromoteMenu : MonoBehaviour
     private Rect GetBoundingBox2D()
     {
         float xMin = float.PositiveInfinity, yMin = float.PositiveInfinity, xMax = 0f, yMax = 0f;
-        foreach (Vector3 v in mesh.vertices)
+        foreach (Vector3 v in boundsMeshFilter.sharedMesh.vertices)
         {
-            Vector2 pos = RectTransformUtility.WorldToScreenPoint(Camera.main, meshFilter.transform.TransformPoint(v));
+            Vector2 pos = RectTransformUtility.WorldToScreenPoint(Camera.main, boundsMeshFilter.transform.TransformPoint(v));
 
             if (pos.x < xMin) xMin = pos.x;
             if (pos.y < yMin) yMin = pos.y;
