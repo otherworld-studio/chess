@@ -166,7 +166,7 @@ public class GamePiece : MonoBehaviour
         renderer.GetComponent<PromoteMenu>().enabled = false;
     }
 
-    // Calculates area- and angle-weighted vertex normals for use in the piece outline shader. Only needs to be called once for each type of piece
+    // Calculates angle-weighted vertex normals for use in the piece outline shader. Only needs to be called once for each type of piece
     // TODO: save the modified meshes into the prefabs themselves (and mark each mesh as not readable)
     public void SmoothMeshNormals()
     {
@@ -187,7 +187,7 @@ public class GamePiece : MonoBehaviour
 
             Vector3 e1 = v2 - v1, e2 = v3 - v2, e3 = v1 - v3;
 
-            Vector3 n = Vector3.Cross(e1, -e3); // magnitude proportional to area
+            Vector3 n = Vector3.Cross(e1, -e3).normalized; // don't normalize -> magnitude proportional to area (area and angle weighted normals)
 
             // TODO: save time by calculating norms and products manually
             float a1 = Vector3.Angle(e1, -e3), a2 = Vector3.Angle(e2, -e1);
