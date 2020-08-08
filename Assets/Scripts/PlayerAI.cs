@@ -155,8 +155,7 @@ public class PlayerAI
     private static Random rng = new Random();
     public void Shuffle<T>(IList<T> list) // Fisher-Yates shuffle
     {
-        int m = list.Count - 1;
-        for (int n = 0; n < m; ++n) // skip the last element because it would only swap with itself
+        for (int n = list.Count; --n > 0;) // skip element 0 because it would only swap with itself
         {
             int k = rng.Next(n + 1);
             T temp = list[k];
