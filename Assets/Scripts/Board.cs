@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine; // TODO: remove after testing
 
 // TODO: threefold repetition: a player has the OPTION of claiming a draw if an identical position has occured at least three times during the course of the game with the same player to move each time (the third time CAN be the next position after this player makes their move, i.e. the player can claim the draw before actually making the move)
 // TODO: fifty move rule: either player has the OPTION of claiming a draw if no capture or pawn movement in the last 50 turns (100 indivial player moves)
@@ -12,11 +13,12 @@ public class Board
     public BoardStatus status { get; private set; } // denotes whether the game is still being played (i.e. still accepting moves), otherwise denotes the gameover condition
     public PieceColor whoseTurn { get; private set; }
     public Square needsPromotion { get; private set; } // the square containing the pawn that needs promotion, or null if none exists
-    private Stack<Move> _moves;
     public Stack<Move> moves { get { return new Stack<Move>(_moves); } }
+    public int moveCount { get { return _moves.Count; } }
     public Move? sideEffect { get; private set; } // stores castling/en passant effects during the latest move
     
     private Piece[] board;
+    private Stack<Move> _moves;
     private HashSet<Piece> hasMoved; // Contains only kings and rooks that have moved at least once
     private Piece justDoubleStepped; // for en passant
 
@@ -48,6 +50,23 @@ public class Board
         Spawn(PieceType.Queen, PieceColor.Black, Square.At(3, 7));
         Spawn(PieceType.King, PieceColor.White, Square.At(4, 0));
         Spawn(PieceType.King, PieceColor.Black, Square.At(4, 7));
+    }
+
+    public Board(Board other)
+    {
+        status = other.status;
+        whoseTurn = other.whoseTurn;
+        needsPromotion = other.needsPromotion;
+        sideEffect = other.sideEffect;
+
+        TODO: might not be deep enough copy?
+        board = other.board;
+
+        _moves = other.moves; // copy the stack
+
+        TODO: these might not be deep enough copies?
+        hasMoved = other.hasMoved;
+        justDoubleStepped = other.justDoubleStepped;
     }
 
     public PieceData? GetPiece(Square square)
@@ -108,6 +127,28 @@ public class Board
         return true;
     }
 
+    public bool Undo()
+    {
+        Debug.Assert(moveCount > 0); // TODO: remove after testing
+        if (moveCount == 0)
+            return false;
+        // TODO: fail when status == promote? Otherwise set needsPromotion to null
+
+        Move lastMove = _moves.Pop();
+        TODO
+        // move pieces on board
+        // promotion: check lastMove.promotion
+        // set status to playing
+        // set justDoubleStepped appropriately
+
+        // how to deal with hasMoved?? Keep track of the index of each first movement? Get rid of hasMoved altogether and iterate through the stack?
+        // need to remember pieces that were taken (incl. side effects?)
+
+        whoseTurn = Opponent(whoseTurn);
+
+        return true;
+    }
+
     public bool Promote(PieceType type)
     {
         if (status != BoardStatus.Promote || type == PieceType.Pawn || type == PieceType.King)
@@ -126,7 +167,8 @@ public class Board
             bool kingInCheck = KingInCheck();
             whoseTurn = Opponent(whoseTurn);
             status = (kingInCheck) ? BoardStatus.Checkmate : BoardStatus.Stalemate;
-        } else if (InsufficientMaterial())
+        }
+        else if (InsufficientMaterial())
         {
             whoseTurn = Opponent(whoseTurn);
             status = BoardStatus.InsufficientMaterial;
@@ -398,7 +440,7 @@ public class Board
 
         static Square()
         {
-            for (int i = 63; i >= 0; --i)
+            for (int i = 0; i < 64; ++i)
                 SQUARES[i] = new Square(i);
         }
 

@@ -46,7 +46,8 @@ public class GameManager : MonoBehaviour
     private GamePiece[] blackPiecesTaken;
     private GameObject[] highlights;
     private bool resigned;
-    private List<GameObject> highlighted; // TODO: assist mode?
+    //private List<GameObject> highlighted; // TODO: assist mode?
+    private PlayerAI playerAI;
 
     // handles square and piece selection animation automatically; this should be null whenever UpdateScene is called
     private Square _selectedSquare;
@@ -160,49 +161,62 @@ public class GameManager : MonoBehaviour
         if (updateSceneCoroutine != null || board.status != BoardStatus.Playing || resigned)
             return;
 
-        mouseSquare = GetMouseSquare();
-
-        if (Input.GetMouseButtonDown(0))
+        if (playerAI != null && playerAI.color == board.whoseTurn)
         {
-            if (mouseSquare != null)
+            if (!playerAI.isCalculating) {
+                if (playerAI.move != NULL ???)
+                    EXECUTE_MOVE
+                else
+                    playerAI.FindMove();
+            }
+        }
+        else
+        {
+            mouseSquare = GetMouseSquare();
+
+            if (Input.GetMouseButtonDown(0))
             {
-                if (selectedSquare == null) // clicked on the board, but no previously selected square
+                if (mouseSquare != null)
                 {
-                    GamePiece g = Get(mouseSquare);
-                    if (g != null && g.color == board.whoseTurn) // only select if it's one of the current player's pieces
+                    if (selectedSquare == null) // clicked on the board, but no previously selected square
                     {
-                        Square temp = mouseSquare;
-                        mouseSquare = null; // remove highlight before selecting
-                        selectedSquare = temp;
+                        GamePiece g = Get(mouseSquare);
+                        if (g != null && g.color == board.whoseTurn) // only select if it's one of the current player's pieces
+                        {
+                            Square temp = mouseSquare;
+                            mouseSquare = null; // remove highlight before selecting
+                            selectedSquare = temp;
+                        }
                     }
-                }
-                else if (mouseSquare == selectedSquare)
-                {
-                    selectedSquare = null;
-                    mouseSquare = null; // ensures the piece at mouseSquare can be re-highlighted on next update
-                }
-                else // the player has attempted to make a move
-                {
-                    Move move = new Move(selectedSquare, mouseSquare);
-                    if (board.MakeMove(move))
+                    else if (mouseSquare == selectedSquare)
                     {
                         selectedSquare = null;
-                        mouseSquare = null; // ensures the piece at mouseSquare can be re-highlighted on next update
+                        mouseSquare = null; // ensures the piece at mouseSquare can be re-highlighted on next update (after piece is finished moving)
+                    }
+                    else // the player has attempted to make a move
+                    {
+                        Move move = new Move(selectedSquare, mouseSquare);
+                        if (board.MakeMove(move))
+                        {
+                            selectedSquare = null;
+                            mouseSquare = null; // ensures the piece at mouseSquare can be re-highlighted on next update (after piece is finished moving)
 
-                        GamePiece g = Get(move.from), h = Get(move.to);
-                        g.transform.position = GetSquareCenter(move.to);
-                        if (h != null)
-                        {
-                            Take(move.to);
-                            waitForPiecesCoroutine = StartCoroutine(WaitForPiecesRoutine(new List<GamePiece>() { g, h }));
-                        } else
-                        {
-                            waitForPiecesCoroutine = StartCoroutine(WaitForPiecesRoutine(new List<GamePiece>() { g }));
+                            GamePiece g = Get(move.from), h = Get(move.to);
+                            g.transform.position = GetSquareCenter(move.to);
+                            if (h != null)
+                            {
+                                Take(move.to);
+                                waitForPiecesCoroutine = StartCoroutine(WaitForPiecesRoutine(new List<GamePiece>() { g, h }));
+                            }
+                            else
+                            {
+                                waitForPiecesCoroutine = StartCoroutine(WaitForPiecesRoutine(new List<GamePiece>() { g }));
+                            }
+                            Set(move.from, null);
+                            Set(move.to, g);
+
+                            UpdateScene((board.sideEffect != null) ? new List<Move>() { board.sideEffect.Value } : null);
                         }
-                        Set(move.from, null);
-                        Set(move.to, g);
-
-                        UpdateScene((board.sideEffect != null) ? new List<Move>() { board.sideEffect.Value } : null);
                     }
                 }
             }
@@ -497,7 +511,7 @@ public class GameManager : MonoBehaviour
         }
         start = boardCorner;
         Debug.DrawLine(start, start + tileForward * 8);
-        for (int j = 0; j < 8; ++j) // Vertical lines
+        for (int i = 0; i < 8; ++i) // Vertical lines
         {
             start += tileRight;
             Debug.DrawLine(start, start + tileForward * 8);
