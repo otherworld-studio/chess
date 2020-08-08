@@ -98,8 +98,7 @@ public class PlayerAI
     }
 
     /** Return a heuristically determined maximum search depth
-     *  based on characteristics of BOARD. 
-     *  This can be improved. */
+     *  based on characteristics of BOARD. This can be improved. */
     private int MaxDepth(Board board)
     {
         int depth = 1;
@@ -119,7 +118,7 @@ public class PlayerAI
 
     private static int[] PIECE_VALUES = { 1, 3, 3, 5, 9 };
 
-    /** Return a heuristic value for BOARD. */
+    /** Return a heuristic value for BOARD. This can be improved. */
     private int StaticScore(Board board)
     {
         BoardStatus status = board.status;

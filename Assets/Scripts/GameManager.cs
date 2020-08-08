@@ -12,7 +12,7 @@ using PieceData = Board.PieceData;
 using Move = Board.Move;
 
 // TODO:
-// AI opponent
+// put AI work in a coroutine
 // online multiplayer
 // make a more robust coroutine framework?
 
@@ -163,12 +163,21 @@ public class GameManager : MonoBehaviour
 
         if (playerAI != null && playerAI.color == board.whoseTurn)
         {
+            /* TODO
             if (!playerAI.isCalculating) {
-                if (playerAI.move != NULL ???)
+                Move move = playerAI.move;
+                if (playerAI.move != null)
                     EXECUTE_MOVE
+                    playerAI.Reset();
                 else
-                    playerAI.FindMove();
+                    playerAI.FindMove(board);
             }
+            */
+            Move move = playerAI.FindMove(board);
+            bool success = board.MakeMove(move);
+            Debug.Assert(success);
+
+            UpdateScene((board.sideEffect != null) ? new List<Move>() { move, board.sideEffect.Value } : new List<Move>() { move });
         }
         else
         {
@@ -289,14 +298,16 @@ public class GameManager : MonoBehaviour
         DisableHUDs();
         if ((PieceColor)player == PieceColor.White)
         {
-            gameOverText.text = "White resigns";
-            winnerText.text = "Black wins!";
+            gameOverText.text = "Player 1 resigns";
+            gameOverText.color = Color.white;
+            winnerText.text = "Player 2 wins!";
             winnerText.color = Color.black;
         }
         else
         {
-            gameOverText.text = "Black resigns";
-            winnerText.text = "White wins!";
+            gameOverText.text = "Player 2 resigns";
+            gameOverText.color = Color.black;
+            winnerText.text = "Player 1 wins!";
             winnerText.color = Color.white;
         }
         gameOverMenu.SetActive(true);
@@ -366,12 +377,12 @@ public class GameManager : MonoBehaviour
             case BoardStatus.Playing:
                 if (board.whoseTurn == PieceColor.White)
                 {
-                    turnText.text = "White's move";
+                    turnText.text = "Player 1's move";
                     turnText.color = Color.white;
                 }
                 else
                 {
-                    turnText.text = "Black's move";
+                    turnText.text = "Player 2's move";
                     turnText.color = Color.black;
                 }
                 break;
@@ -383,12 +394,14 @@ public class GameManager : MonoBehaviour
                 gameOverText.text = "Checkmate!";
                 if (board.whoseTurn == PieceColor.White)
                 {
-                    winnerText.text = "White wins!";
+                    gameOverText.color = Color.white;
+                    winnerText.text = "Player 1 wins!";
                     winnerText.color = Color.white;
                 }
                 else
                 {
-                    winnerText.text = "Black wins!";
+                    gameOverText.color = Color.black;
+                    winnerText.text = "Player 2 wins!";
                     winnerText.color = Color.black;
                 }
                 gameOverMenu.SetActive(true);
@@ -397,14 +410,32 @@ public class GameManager : MonoBehaviour
                 DisableHUDs();
                 gameOverText.text = "Stalemate!";
                 winnerText.text = "Draw";
-                winnerText.color = (board.whoseTurn == PieceColor.White) ? Color.white : Color.black;
+                if (board.whoseTurn == PieceColor.White)
+                {
+                    gameOverText.color = Color.white;
+                    winnerText.color = Color.white;
+                }
+                else
+                {
+                    gameOverText.color = Color.black;
+                    winnerText.color = Color.black;
+                }
                 gameOverMenu.SetActive(true);
                 break;
             case BoardStatus.InsufficientMaterial:
                 DisableHUDs();
                 gameOverText.text = "Insufficient material to force a checkmate!";
                 winnerText.text = "Draw";
-                winnerText.color = (board.whoseTurn == PieceColor.White) ? Color.white : Color.black;
+                if (board.whoseTurn == PieceColor.White)
+                {
+                    gameOverText.color = Color.white;
+                    winnerText.color = Color.white;
+                }
+                else
+                {
+                    gameOverText.color = Color.black;
+                    winnerText.color = Color.black;
+                }
                 gameOverMenu.SetActive(true);
                 break;
         }
@@ -456,12 +487,12 @@ public class GameManager : MonoBehaviour
     {
         if (board.whoseTurn == PieceColor.White)
         {
-            turnText.text = "White's move";
+            turnText.text = "Player 1's move";
             turnText.color = Color.white;
         }
         else
         {
-            turnText.text = "Black's move";
+            turnText.text = "Player 2's move";
             turnText.color = Color.black;
         }
         HUD.SetActive(true);

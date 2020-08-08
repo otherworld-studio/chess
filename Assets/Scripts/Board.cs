@@ -16,16 +16,21 @@ public class Board
     public Stack<Move> moves { get { return new Stack<Move>(_moves); } }
     public int moveCount { get { return _moves.Count; } }
     public Move? sideEffect { get; private set; } // stores castling/en passant effects during the latest move
-    
-    private Piece[] board;
+
     private Stack<Move> _moves;
-    private HashSet<Piece> hasMoved; // Contains only kings and rooks that have moved at least once
-    private Piece justDoubleStepped; // for en passant
+
+    private Piece[] board;
+    private Dictionary<int, Tuple<Piece, Square>> takenPieces; // pieces that have been taken (square != null indicates en passant)
+    private Dictionary<int, Move> castles;
+    private Dictionary<Piece, int> rookKingFirstMoves; // Contains only kings and rooks that have moved at least once
+    private Square justDoubleStepped; // for en passant
 
     public Board()
     {
         board = new Piece[64];
-        hasMoved = new HashSet<Piece>();
+        takenPieces = new Dictionary<int, Tuple<Piece, Square>>();
+        castles = new Dictionary<int, Move>();
+        rookKingFirstMoves = new Dictionary<Piece, int>();
 
         _moves = new Stack<Move>();
 
@@ -59,13 +64,16 @@ public class Board
         needsPromotion = other.needsPromotion;
         sideEffect = other.sideEffect;
 
-        TODO: might not be deep enough copy?
-        board = other.board;
-
         _moves = other.moves; // copy the stack
 
-        TODO: these might not be deep enough copies?
-        hasMoved = other.hasMoved;
+        // because both piece and square objects are stateless (can't be modified), we don't need to deep copy anything
+        board = new Piece[64];
+        foreach (Square s in Square.squares)
+            Put(s, other.Get(s));
+
+        takenPieces = new Dictionary<int, Tuple<Piece, Square>>(other.takenPieces);
+        castles = new Dictionary<int, Move>(other.castles);
+        rookKingFirstMoves = new Dictionary<Piece, int>(other.rookKingFirstMoves);
         justDoubleStepped = other.justDoubleStepped;
     }
 
@@ -85,9 +93,11 @@ public class Board
         board[square.rank * 8 + square.file] = piece;
     }
 
-    private void Spawn(PieceType type, PieceColor color, Square square)
+    private Piece Spawn(PieceType type, PieceColor color, Square square)
     {
-        Put(square, Piece.Create(type, color));
+        Piece p = Piece.Create(type, color);
+        Put(square, p);
+        return p;
     }
 
     // Returns true iff the move is made successfully
@@ -95,10 +105,8 @@ public class Board
     {
         if (!IsLegalMove(move))
             return false;
-
-        _moves.Push(move);
+        
         sideEffect = null;
-
         justDoubleStepped = null;
 
         Piece p = Get(move.from);
@@ -106,10 +114,13 @@ public class Board
         Put(move.from, null);
         Put(move.to, p);
 
+        _moves.Push(move);
+
         if (needsPromotion != null)
         {
             status = BoardStatus.Promote;
-        } else
+        }
+        else
         {
             whoseTurn = Opponent(whoseTurn);
             if (!legalMoves.Any()) // Game over
@@ -117,7 +128,8 @@ public class Board
                 bool kingInCheck = KingInCheck();
                 whoseTurn = Opponent(whoseTurn); // turn should be the last player to move
                 status = (kingInCheck) ? BoardStatus.Checkmate : BoardStatus.Stalemate;
-            } else if (InsufficientMaterial())
+            }
+            else if (InsufficientMaterial())
             {
                 whoseTurn = Opponent(whoseTurn);
                 status = BoardStatus.InsufficientMaterial;
@@ -135,15 +147,24 @@ public class Board
         // TODO: fail when status == promote? Otherwise set needsPromotion to null
 
         Move lastMove = _moves.Pop();
-        TODO
-        // move pieces on board
-        // promotion: check lastMove.promotion
-        // set status to playing
-        // set justDoubleStepped appropriately
+        Piece movedPiece = Get(lastMove.to);
+        if (lastMove.promotion != PieceType.Pawn)
+            Spawn(PieceType.Pawn, movedPiece.color, lastMove.to); // undo promotion
 
-        // how to deal with hasMoved?? Keep track of the index of each first movement? Get rid of hasMoved altogether and iterate through the stack?
-        // need to remember pieces that were taken (incl. side effects?)
+        Put(lastMove.from, movedPiece);
+        Put(lastMove.to, null);
+        
+        TODO: rook/king movements and taken pieces (these need to be filled in King, Rook, and basically anytime a piece is taken (yikes))
 
+        int moveIndex;
+        if (rookKingFirstMoves.TryGetValue(movedPiece, out moveIndex) && moveIndex == moveCount) // this piece has never moved
+            rookKingFirstMoves.Remove(movedPiece);
+
+        Move twoMovesAgo = _moves.Peek();
+        if (Get(twoMovesAgo.to).type == PieceType.Pawn && twoMovesAgo.to.rank - twoMovesAgo.from.rank == 2)
+            justDoubleStepped = twoMovesAgo.to;
+
+        status = BoardStatus.Playing;
         whoseTurn = Opponent(whoseTurn);
 
         return true;
@@ -199,8 +220,8 @@ public class Board
         // Copy the game state, perform the move, and revert.
         Piece[] boardCopy = new Piece[64];
         Array.Copy(board, boardCopy, 64);
-        HashSet<Piece> hasMovedCopy = new HashSet<Piece>(hasMoved);
-        Piece justDoubleSteppedCopy = justDoubleStepped;
+        Dictionary<Piece, int> rookKingFirstMovesCopy = new Dictionary<Piece, int>(rookKingFirstMoves);
+        Square justDoubleSteppedCopy = justDoubleStepped;
         Square needsPromotionCopy = needsPromotion;
         Move? sideEffectCopy = sideEffect;
         
@@ -212,7 +233,7 @@ public class Board
         bool kingInCheck = KingInCheck();
 
         board = boardCopy;
-        hasMoved = hasMovedCopy;
+        rookKingFirstMoves = rookKingFirstMovesCopy;
         justDoubleStepped = justDoubleSteppedCopy;
         needsPromotion = needsPromotionCopy;
         sideEffect = sideEffectCopy;
@@ -559,8 +580,7 @@ public class Board
                         return p.color == opponent;
 
                     // En passant
-                    p = board.Get(Square.At(move.to.file, move.from.rank));
-                    return p != null && p == board.justDoubleStepped;
+                    return Square.At(move.to.file, move.from.rank) == board.justDoubleStepped;
                 }
 
                 return false;
@@ -575,23 +595,17 @@ public class Board
             public override IEnumerable<Move> LegalMoves(Square from, Board board)
             {
                 int y = (color == PieceColor.White) ? from.rank + 1 : from.rank - 1;
-                if (!Square.Exists(from.file, y))
-                    yield break;
-
                 Square to = Square.At(from.file, y);
                 if (board.Get(to) == null)
                 {
                     foreach (Move m in LegalMovesHelper(from, to))
                         yield return m;
 
-                    if (from.rank == ((color == PieceColor.White) ? 1 : 6))
+                    if (from.rank == ((color == PieceColor.White) ? 1 : 6)) // en passant
                     {
                         to = Square.At(from.file, (color == PieceColor.White) ? 3 : 4);
                         if (board.Get(to) == null)
-                        {
-                            foreach (Move m in LegalMovesHelper(from, to))
-                                yield return m;
-                        }
+                            yield return new Move(from, to);
                     }
                 }
 
@@ -610,14 +624,8 @@ public class Board
                                     yield return m;
                             }
                         }
-                        else
-                        {
-                            p = board.Get(Square.At(x, from.rank));
-                            if (p != null && p == board.justDoubleStepped)
-                            {
-                                foreach (Move m in LegalMovesHelper(from, to))
-                                    yield return m;
-                            }
+                        else if (Square.At(x, from.rank) == board.justDoubleStepped) {
+                            yield return new Move(from, to);
                         }
                     }
                 }
@@ -643,7 +651,7 @@ public class Board
             {
                 if (Math.Abs(move.to.rank - move.from.rank) == 2)
                 {
-                    board.justDoubleStepped = this;
+                    board.justDoubleStepped = move.to;
                 }
                 else if (move.from.file != move.to.file && board.Get(move.to) == null) // En passant
                 {
@@ -791,7 +799,7 @@ public class Board
 
             public override void PreMove(Move move, Board board)
             {
-                board.hasMoved.Add(this);
+                board.rookKingFirstMoves.TryAdd(this, board.moveCount);
             }
         }
 
@@ -851,7 +859,7 @@ public class Board
                 int x = move.to.file - move.from.file, y = move.to.rank - move.from.rank;
                 if (Math.Abs(x) > 1) // Castling
                 {
-                    if (y != 0 || board.hasMoved.Contains(this))
+                    if (y != 0 || board.rookKingFirstMoves.ContainsKey(this))
                         return false;
 
                     Square rookSquare = (x == 2) ? Square.At(7, move.from.rank) : (x == -2) ? Square.At(0, move.from.rank) : null;
@@ -859,7 +867,7 @@ public class Board
                         return false; // This is not the correct distance for a castle
 
                     Piece r = board.Get(rookSquare);
-                    if (r.type != PieceType.Rook || board.hasMoved.Contains(r) || !board.IsUnblockedPath(move.from, rookSquare) || board.IsCheckedSquare(move.from, opponent))
+                    if (r.type != PieceType.Rook || board.rookKingFirstMoves.ContainsKey(r) || !board.IsUnblockedPath(move.from, rookSquare) || board.IsCheckedSquare(move.from, opponent))
                         return false;
 
                     Square newRookSquare = (x == 2) ? Square.At(5, move.from.rank) : Square.At(3, move.from.rank);
@@ -898,7 +906,7 @@ public class Board
                 }
 
                 // Castling
-                if (board.hasMoved.Contains(this))
+                if (board.rookKingFirstMoves.ContainsKey(this))
                     yield break;
 
                 Square[] rookSquares = { Square.At(0, from.rank), Square.At(7, from.rank) };
@@ -907,14 +915,14 @@ public class Board
                 for (int i = 0; i < 2; ++i)
                 {
                     Piece p = board.Get(rookSquares[i]);
-                    if (p != null && p.type == PieceType.Rook && !board.hasMoved.Contains(p) && board.IsUnblockedPath(from, rookSquares[i]) && !board.IsCheckedSquare(from, opponent) && !board.IsCheckedSquare(newRookSquares[i], opponent))
+                    if (p != null && p.type == PieceType.Rook && !board.rookKingFirstMoves.ContainsKey(p) && board.IsUnblockedPath(from, rookSquares[i]) && !board.IsCheckedSquare(from, opponent) && !board.IsCheckedSquare(newRookSquares[i], opponent))
                         yield return new Move(from, newKingSquares[i]);
                 }
             }
 
             public override void PreMove(Move move, Board board)
             {
-                board.hasMoved.Add(this);
+                board.rookKingFirstMoves.TryAdd(this, board.moveCount);
 
                 int x = move.to.file - move.from.file;
                 if (Math.Abs(x) > 1) // Castling

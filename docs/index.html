@@ -31,8 +31,8 @@
 
   <p>
     <ul>
-      <li>General-use chessboard class TODO</li>
-      <li>Pixel-perfect outline shader TODO: stencil buffer</li>
+      <li>General-use chessboard class with game functionality</li>
+      <li>Pixel-perfect outline shader: Each vertex is expanded along its angle-weighted normal, which is first scaled to a constant on-screen size. Perspective division is counteracted by pre-multiplying each normal with the original vertex's w component in clip space, eliminating perspective foreshortening. Fragments in front of the piece itself are removed via stencil testing, as front culling is an incomplete solution.</li>
       <li>Pop-up pawn promotion UI which autoscales to match the piece's size on the screen (achieved using an extra cylindrical bounding box)</li>
       <li>Simple opponent AI with alpha-beta minimax</li>
     </ul>
