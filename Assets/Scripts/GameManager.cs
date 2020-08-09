@@ -12,6 +12,7 @@ using PieceData = Board.PieceData;
 using Move = Board.Move;
 
 // TODO:
+// main menu to select vs. AI or local
 // put AI work in a coroutine
 // online multiplayer
 // make a more robust coroutine framework?
@@ -154,6 +155,8 @@ public class GameManager : MonoBehaviour
 
         }
         Reset();
+
+        playerAI = new PlayerAI(PieceColor.Black);
     }
 
     void Update()
@@ -258,7 +261,7 @@ public class GameManager : MonoBehaviour
             else
                 Set(s, null);
         }
-        for (int i = 0; i < 30; ++i)
+        for (int i = 0; i < 15; ++i)
         {
             GamePiece g = whitePiecesTaken[i];
             GamePiece h = blackPiecesTaken[i];

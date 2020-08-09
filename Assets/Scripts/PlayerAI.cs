@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using UnityEngine; // TODO
 
 using BoardStatus = Board.BoardStatus;
 using Square = Board.Square;
@@ -12,7 +13,7 @@ public class PlayerAI
 {
     public readonly PieceColor color;
 
-    PlayerAI(PieceColor _color)
+    public PlayerAI(PieceColor _color)
     {
         color = _color;
     }
@@ -59,8 +60,16 @@ public class PlayerAI
             foreach (Move move in moves)
             {
                 board.MakeMove(move);
+                Debug.Assert(board.GetPiece(move.to) != null, "maximizer makemove fail");
                 bestVal = Math.Max(bestVal, FindMove(board, depth - 1, false, false, alpha, beta));
-                board.Undo();
+                bool success = board.Undo();
+                Debug.Assert(success, "maximizer undo returned false");
+                Debug.Assert(board.GetPiece(board.moves.Pop().to) != null, "maximizer undo fail");
+                /*
+                Board tempBoard = new Board(board);
+                tempBoard.MakeMove(move);
+                bestVal = Math.Max(bestVal, FindMove(tempBoard, depth - 1, false, false, alpha, beta));
+                */
 
                 if (bestVal > beta) // prune; black would never let this happen
                     return bestVal;
@@ -80,8 +89,16 @@ public class PlayerAI
             foreach (Move move in moves)
             {
                 board.MakeMove(move);
+                Debug.Assert(board.GetPiece(move.to) != null, "minimizer makemove fail");
                 bestVal = Math.Min(bestVal, FindMove(board, depth - 1, false, true, alpha, beta));
-                board.Undo();
+                bool success = board.Undo();
+                Debug.Assert(success, "minimizer undo returned false");
+                Debug.Assert(board.GetPiece(board.moves.Pop().to) != null, "minimizer undo fail");
+                /*
+                Board tempBoard = new Board(board);
+                tempBoard.MakeMove(move);
+                bestVal = Math.Min(bestVal, FindMove(tempBoard, depth - 1, false, true, alpha, beta));
+                */
 
                 if (bestVal < alpha) // prune; white would never let this happen
                     return bestVal;
@@ -151,7 +168,8 @@ public class PlayerAI
         return score;
     }
 
-    private static Random rng = new Random();
+    // TODO:remove System
+    private static System.Random rng = new System.Random();
     public void Shuffle<T>(IList<T> list) // Fisher-Yates shuffle
     {
         for (int n = list.Count; --n > 0;) // skip element 0 because it would only swap with itself

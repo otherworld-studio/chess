@@ -2,7 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using UnityEngine; // TODO: remove after testing
+using UnityEngine; // TODO
 
 // TODO: threefold repetition: a player has the OPTION of claiming a draw if an identical position has occured at least three times during the course of the game with the same player to move each time (the third time CAN be the next position after this player makes their move, i.e. the player can claim the draw before actually making the move)
 // TODO: fifty move rule: either player has the OPTION of claiming a draw if no capture or pawn movement in the last 50 turns (100 indivial player moves)
@@ -15,21 +15,27 @@ public class Board
     public Square needsPromotion { get; private set; } // the square containing the pawn that needs promotion, or null if none exists
     public Stack<Move> moves { get { return new Stack<Move>(_moves); } }
     public int moveCount { get { return _moves.Count; } }
-    public Move? sideEffect { get; private set; } // stores castling/en passant effects during the latest move
+    public Move? sideEffect { get {
+            Move _sideEffect;
+            if (sideEffects.TryGetValue(moveCount - 1, out _sideEffect))
+                return _sideEffect;
+            else
+                return null;
+        } }
 
     private Stack<Move> _moves;
 
     private Piece[] board;
-    private Dictionary<int, Tuple<Piece, Square>> takenPieces; // pieces that have been taken (square != null indicates en passant)
-    private Dictionary<int, Move> castles;
-    private Dictionary<Piece, int> rookKingFirstMoves; // Contains only kings and rooks that have moved at least once
+    private Dictionary<int, Piece> takenPieces; // pieces that have been taken normally (excl. en passant)
+    private Dictionary<int, Move> sideEffects; // castles and en passants
+    private Dictionary<Piece, int> rookKingFirstMoves; // contains only kings and rooks that have moved at least once
     private Square justDoubleStepped; // for en passant
 
     public Board()
     {
         board = new Piece[64];
-        takenPieces = new Dictionary<int, Tuple<Piece, Square>>();
-        castles = new Dictionary<int, Move>();
+        takenPieces = new Dictionary<int, Piece>();
+        sideEffects = new Dictionary<int, Move>();
         rookKingFirstMoves = new Dictionary<Piece, int>();
 
         _moves = new Stack<Move>();
@@ -62,7 +68,6 @@ public class Board
         status = other.status;
         whoseTurn = other.whoseTurn;
         needsPromotion = other.needsPromotion;
-        sideEffect = other.sideEffect;
 
         _moves = other.moves; // copy the stack
 
@@ -71,8 +76,8 @@ public class Board
         foreach (Square s in Square.squares)
             Put(s, other.Get(s));
 
-        takenPieces = new Dictionary<int, Tuple<Piece, Square>>(other.takenPieces);
-        castles = new Dictionary<int, Move>(other.castles);
+        takenPieces = new Dictionary<int, Piece>(other.takenPieces);
+        sideEffects = new Dictionary<int, Move>(other.sideEffects);
         rookKingFirstMoves = new Dictionary<Piece, int>(other.rookKingFirstMoves);
         justDoubleStepped = other.justDoubleStepped;
     }
@@ -106,15 +111,18 @@ public class Board
         if (!IsLegalMove(move))
             return false;
         
-        sideEffect = null;
         justDoubleStepped = null;
 
         Piece p = Get(move.from);
         p.PreMove(move, this); // Extra operations (e.g. take a pawn via en passant, move a rook via castling)
         Put(move.from, null);
+        Piece taken = Get(move.to);
+        if (taken != null)
+            takenPieces.Add(moveCount, taken);
         Put(move.to, p);
 
-        _moves.Push(move);
+        _moves.Push(move); // must be called after moveCount
+        Debug.Assert(Get(move.to) != null);
 
         if (needsPromotion != null)
         {
@@ -141,28 +149,59 @@ public class Board
 
     public bool Undo()
     {
-        Debug.Assert(moveCount > 0); // TODO: remove after testing
-        if (moveCount == 0)
+        if (moveCount == 0 || status == BoardStatus.Promote)
             return false;
-        // TODO: fail when status == promote? Otherwise set needsPromotion to null
-
+        
         Move lastMove = _moves.Pop();
-        Piece movedPiece = Get(lastMove.to);
+        Piece movedPiece = Get(lastMove.to); // TODO: how can this be null?
+        Debug.Assert(movedPiece != null);
         if (lastMove.promotion != PieceType.Pawn)
-            Spawn(PieceType.Pawn, movedPiece.color, lastMove.to); // undo promotion
+            movedPiece = Spawn(PieceType.Pawn, movedPiece.color, lastMove.to); // undo promotion
 
         Put(lastMove.from, movedPiece);
-        Put(lastMove.to, null);
-        
-        TODO: rook/king movements and taken pieces (these need to be filled in King, Rook, and basically anytime a piece is taken (yikes))
+        Piece taken;
+        if (takenPieces.TryGetValue(moveCount, out taken)) {
+            takenPieces.Remove(moveCount);
+            Put(lastMove.to, taken);
+        }
+        else
+        {
+            Put(lastMove.to, null);
+        }
+
+        Move _sideEffect;
+        if (sideEffects.TryGetValue(moveCount, out _sideEffect))
+        {
+            sideEffects.Remove(moveCount);
+            if (_sideEffect.to == null)
+            {
+                Spawn(PieceType.Pawn, Opponent(movedPiece.color), _sideEffect.from); // undo en passant
+            }
+            else
+            {
+                // undo castle
+                Put(_sideEffect.from, Get(_sideEffect.to));
+                Put(_sideEffect.to, null);
+            }
+        }
 
         int moveIndex;
-        if (rookKingFirstMoves.TryGetValue(movedPiece, out moveIndex) && moveIndex == moveCount) // this piece has never moved
+        if (rookKingFirstMoves.TryGetValue(movedPiece, out moveIndex) && moveIndex == moveCount) // this piece has now never moved
             rookKingFirstMoves.Remove(movedPiece);
 
-        Move twoMovesAgo = _moves.Peek();
-        if (Get(twoMovesAgo.to).type == PieceType.Pawn && twoMovesAgo.to.rank - twoMovesAgo.from.rank == 2)
-            justDoubleStepped = twoMovesAgo.to;
+        if (moveCount > 0)
+        {
+            Move twoMovesAgo = _moves.Peek();
+            Piece p = Get(twoMovesAgo.to);
+            if (p != null && p.type == PieceType.Pawn && twoMovesAgo.to.rank - twoMovesAgo.from.rank == 2)
+                justDoubleStepped = twoMovesAgo.to;
+            else
+                justDoubleStepped = null;
+        }
+        else
+        {
+            justDoubleStepped = null;
+        }
 
         status = BoardStatus.Playing;
         whoseTurn = Opponent(whoseTurn);
@@ -179,6 +218,7 @@ public class Board
 
         Move lastMove = _moves.Pop();
         _moves.Push(new Move(lastMove.from, lastMove.to, type));
+        Debug.Assert(Get(lastMove.to) != null);
 
         needsPromotion = null;
 
@@ -220,10 +260,11 @@ public class Board
         // Copy the game state, perform the move, and revert.
         Piece[] boardCopy = new Piece[64];
         Array.Copy(board, boardCopy, 64);
+        Dictionary<int, Piece> takenPiecesCopy = new Dictionary<int, Piece>(takenPieces);
+        Dictionary<int, Move> sideEffectsCopy = new Dictionary<int, Move>(sideEffects);
         Dictionary<Piece, int> rookKingFirstMovesCopy = new Dictionary<Piece, int>(rookKingFirstMoves);
         Square justDoubleSteppedCopy = justDoubleStepped;
         Square needsPromotionCopy = needsPromotion;
-        Move? sideEffectCopy = sideEffect;
         
         Piece p = Get(move.from);
         p.PreMove(move, this); // Tells the piece to do extra things if necessary (e.g. update variables, take a pawn via en passant, move a rook via castling)
@@ -233,10 +274,11 @@ public class Board
         bool kingInCheck = KingInCheck();
 
         board = boardCopy;
+        takenPieces = takenPiecesCopy;
+        sideEffects = sideEffectsCopy;
         rookKingFirstMoves = rookKingFirstMovesCopy;
         justDoubleStepped = justDoubleSteppedCopy;
         needsPromotion = needsPromotionCopy;
-        sideEffect = sideEffectCopy;
 
         return !kingInCheck;
     }
@@ -657,7 +699,7 @@ public class Board
                 {
                     Square enPassantSquare = Square.At(move.to.file, move.from.rank);
                     board.Put(enPassantSquare, null);
-                    board.sideEffect = new Move(enPassantSquare, null);
+                    board.sideEffects.Add(board.moveCount, new Move(enPassantSquare, null));
                 }
                 else if (move.to.rank == 7 || move.to.rank == 0)
                 {
@@ -799,7 +841,9 @@ public class Board
 
             public override void PreMove(Move move, Board board)
             {
-                board.rookKingFirstMoves.TryAdd(this, board.moveCount);
+                //board.rookKingFirstMoves.TryAdd(this, board.moveCount); not .NET 2.0 compatible
+                if (!board.rookKingFirstMoves.ContainsKey(this))
+                    board.rookKingFirstMoves.Add(this, board.moveCount);
             }
         }
 
@@ -922,7 +966,9 @@ public class Board
 
             public override void PreMove(Move move, Board board)
             {
-                board.rookKingFirstMoves.TryAdd(this, board.moveCount);
+                //board.rookKingFirstMoves.TryAdd(this, board.moveCount); not .NET 2.0 compatible
+                if (!board.rookKingFirstMoves.ContainsKey(this))
+                    board.rookKingFirstMoves.Add(this, board.moveCount);
 
                 int x = move.to.file - move.from.file;
                 if (Math.Abs(x) > 1) // Castling
@@ -932,7 +978,6 @@ public class Board
                     {
                         rookSquare = Square.At(7, move.from.rank);
                         newRookSquare = Square.At(5, move.from.rank);
-
                     }
                     else
                     {
@@ -942,7 +987,7 @@ public class Board
                     board.Put(newRookSquare, board.Get(rookSquare));
                     board.Put(rookSquare, null);
 
-                    board.sideEffect = new Move(rookSquare, newRookSquare);
+                    board.sideEffects.Add(board.moveCount, new Move(rookSquare, newRookSquare));
                 }
             }
         }
