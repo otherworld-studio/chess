@@ -12,7 +12,7 @@ using PieceData = Board.PieceData;
 using Move = Board.Move;
 
 // TODO:
-// main menu to select vs. AI or local
+// main menu to select between [vs. AI] or [local]
 // put AI work in a coroutine
 // online multiplayer
 // make a more robust coroutine framework?
@@ -33,7 +33,7 @@ public class GameManager : MonoBehaviour
 
     // TODO: add turnText to HUD, 1 HUD for each player
     [SerializeField]
-    private Text turnText, gameOverText, winnerText, debugText;
+    private Text turnText, gameOverText, winnerText;
     [SerializeField]
     private GameObject boardObject, HUD, gameOverMenu;
     [SerializeField]
@@ -156,7 +156,7 @@ public class GameManager : MonoBehaviour
         }
         Reset();
 
-        //playerAI = new PlayerAI(PieceColor.Black);
+        playerAI = new PlayerAI(PieceColor.Black);
     }
 
     void Update()
@@ -227,10 +227,6 @@ public class GameManager : MonoBehaviour
                             Set(move.from, null);
                             Set(move.to, g);
 
-                            if (board.needsPromotion != null)
-                            {
-                                Debug.Log("GameManager found pawn to be promoted");
-                            }
                             UpdateScene((board.sideEffect != null) ? new List<Move>() { board.sideEffect.Value } : null);
                         }
                     }
@@ -358,7 +354,7 @@ public class GameManager : MonoBehaviour
                     Destroy(Get(m.to).gameObject);
                     Spawn(board.GetPiece(m.to).Value, m.to);
                 }
-                else
+                else // castles and regular moves
                 {
                     GamePiece g = Get(m.from);
                     g.Move(GetSquareCenter(m.from), GetSquareCenter(m.to));
@@ -374,7 +370,11 @@ public class GameManager : MonoBehaviour
                     Set(m.from, null);
                     Set(m.to, g);
 
-                    // TODO: handle AI automatic promotions
+                    if (m.promotion != PieceType.Pawn) // promotion
+                    {
+                        Destroy(g.gameObject);
+                        Spawn(board.GetPiece(m.to).Value, m.to);
+                    }
                 }
             }
         }
@@ -394,7 +394,6 @@ public class GameManager : MonoBehaviour
                 }
                 break;
             case BoardStatus.Promote:
-                Debug.Log("requesting promotion...");
                 Get(board.needsPromotion).RequestPromotion();
                 break;
             case BoardStatus.Checkmate:

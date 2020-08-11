@@ -3,8 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
-// IT HAS TO BE PRE MOVE because justDoubleStepped must be set to null beforehand and PreMove must know whether to en passant
-
 // TODO: threefold repetition: a player has the OPTION of claiming a draw if an identical position has occured at least three times during the course of the game with the same player to move each time (the third time CAN be the next position after this player makes their move, i.e. the player can claim the draw before actually making the move)
 // TODO: fifty move rule: either player has the OPTION of claiming a draw if no capture or pawn movement in the last 50 turns (100 indivial player moves)
 
@@ -92,8 +90,6 @@ public class Board
         Piece p = Get(square);
         return (p != null) ? new PieceData(p.type, p.color) : (PieceData?)null;
     }
-
-    private static readonly char[] PIECE_CHARS = { 'P', 'N', 'B', 'R', 'Q', 'K' };
 
     private Piece Get(Square square)
     {
@@ -563,7 +559,7 @@ public class Board
         }
     }
 
-    // TODO: the same thing we did with squares (generate all piece type/color combinations at the beginning)
+    // TODO: the same thing we did with squares -> generate all pieces at the beginning; requires instantiating every copy on the board so that we can check for each rook separately in rookKingFirstMoves
     private abstract class Piece
     {
         public readonly PieceColor color;
@@ -580,6 +576,7 @@ public class Board
         public abstract IEnumerable<Move> LegalMoves(Square from, Board board);
 
         // Assumes the move FROM -> TO is legal, and that promotion != PieceType.King
+        // Stop changing this to PostMove! It must be PreMove because justDoubleStepped must be set to null beforehand and PreMove must know whether to en passant
         public virtual void PreMove(Move move, Board board) { return; }
 
         public static Piece Create(PieceType type, PieceColor color)
@@ -601,15 +598,22 @@ public class Board
             }
         }
 
-        // TODO?
+        public bool Equals(Piece other)
+        {
+            return color == other.color && type == other.type;
+        }
+
         public override bool Equals(object obj)
         {
-            if (obj == null || GetType() != obj.GetType())
-                return false;
-
-            Piece p = (Piece)obj;
-            return color == p.color && type == p.type;
+            return obj != null && GetType() == obj.GetType() && Equals((Piece)obj);
         }
+
+        /* From the spec: "If GetHashCode is not overridden, hash codes for reference types are computed
+         * by calling the Object.GetHashCode method of the base class, which computes a hash code based on
+         * an object's reference; for more information, see RuntimeHelpers.GetHashCode. In other words,
+         * two objects for which the ReferenceEquals method returns true have identical hash codes. */
+
+        // Don't override GetHashCode, because rookKingFirstMoves must distinguish between different rooks of the same color!
 
         private Piece(PieceColor _color)
         {

@@ -101,7 +101,7 @@ public class PlayerAI
      *  based on characteristics of BOARD. This can be improved. */
     private int MaxDepth(Board board)
     {
-        /* TODO: testing
+        /* TODO: used previously for testing
         int depth = 1;
         int N = board.moveCount;
         if (N >= 50)
