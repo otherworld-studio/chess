@@ -2,7 +2,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using UnityEngine; // TODO
 
 // IT HAS TO BE PRE MOVE because justDoubleStepped must be set to null beforehand and PreMove must know whether to en passant
 
@@ -24,17 +23,10 @@ public class Board
     public int moveCount { get { return _moves.Count; } }
     public Move? sideEffect { get {
             Move _sideEffect;
-            Debug.Log("checking move " + (moveCount - 1) + " for side effect");
             if (sideEffects.TryGetValue(moveCount - 1, out _sideEffect))
-            {
-                Debug.Log("found side effect on move " + (moveCount - 1));
                 return _sideEffect;
-            }
             else
-            {
-                Debug.Log("could not locate side effect on move " + (moveCount - 1));
                 return null;
-            } 
         } }
 
     private Stack<Move> _moves;
@@ -49,7 +41,6 @@ public class Board
     {
         board = new Piece[64];
         takenPieces = new Dictionary<int, Piece>();
-        Debug.Log("created new side effects");
         sideEffects = new Dictionary<int, Move>();
         rookKingFirstMoves = new Dictionary<Piece, int>();
 
@@ -91,7 +82,6 @@ public class Board
         Array.Copy(other.board, board, 64);
 
         takenPieces = new Dictionary<int, Piece>(other.takenPieces);
-        Debug.Log("side effects copied");
         sideEffects = new Dictionary<int, Move>(other.sideEffects);
         rookKingFirstMoves = new Dictionary<Piece, int>(other.rookKingFirstMoves);
         justDoubleStepped = other.justDoubleStepped;
@@ -104,25 +94,6 @@ public class Board
     }
 
     private static readonly char[] PIECE_CHARS = { 'P', 'N', 'B', 'R', 'Q', 'K' };
-
-    // TODO?
-    public override string ToString()
-    {
-        string boardString = "";
-        for (int rank = 7; rank-- > 0;)
-        {
-            boardString += '-' * 25 + '\n';
-            for (int file = 7; file-- > 0;)
-            {
-                Piece p = Get(Square.At(file, rank));
-                boardString += '|' + ((p != null) ? PIECE_CHARS[(int)p.type] + ((p.color == PieceColor.Black) ? "b" : "w") : "  ");
-            }
-            boardString += "|\n";
-        }
-        boardString += '-' * 25 + '\n';
-        
-        return boardString;
-    }
 
     private Piece Get(Square square)
     {
@@ -146,42 +117,22 @@ public class Board
     {
         if (!IsLegalMove(move))
             return false;
-
-        // TODO: remove when done
-        Piece debug = Get(move.from);
-        Debug.Assert(debug.type != PieceType.Pawn || (move.to.rank != 0 && move.to.rank != 7) || move.promotion != PieceType.Pawn, "if this fails, there's something wrong with legalMoves");
-
-        // TODO: remove when done
-        TODOboard = new Board(this);
         
         justDoubleStepped = null;
 
         Get(move.from).PreMove(move, this); // Extra operations (e.g. take a pawn via en passant, move a rook via castling)
         // PreMove may have replaced the piece at move.from
-        Piece p = Get(move.from);
-        Put(move.from, null);
         Piece taken = Get(move.to);
         if (taken != null)
             takenPieces.Add(moveCount, taken);
-        Put(move.to, p);
+        Put(move.to, Get(move.from));
+        Put(move.from, null);
 
         _moves.Push(move); // must be called after moveCount
-
-        //TODO: remove when done
-        Square ks = TODOgetKingSquare(whoseTurn);
-        Debug.Assert(!IsCheckedSquare(ks, Opponent(whoseTurn)), "someone was incorrectly able to put their own king in check");
-
-        //TODO: remove when done
-        p = Get(move.to);
-        Debug.Assert(p.type != PieceType.Pawn || (move.to.rank != 0 && move.to.rank != 7), "AI testing: AI managed to move a pawn to the end of the board");
 
         if (needsPromotion != null)
         {
             status = BoardStatus.Promote;
-
-            //TODO: remove when done
-            Debug.Assert(false, "AI testing: AI managed to trigger the promote state");
-            Debug.Break();
         }
         else
         {
@@ -202,136 +153,6 @@ public class Board
         return true;
     }
 
-    private Board TODOboard;
-
-    private void TODOcheckDeformities()
-    {
-        if (status != TODOboard.status)
-        {
-            Debug.Log("status deformity");
-            Debug.Break();
-        }
-
-        if (whoseTurn != TODOboard.whoseTurn)
-        {
-            Debug.Log("whoseTurn deformity");
-            Debug.Break();
-        }
-
-        if (needsPromotion != TODOboard.needsPromotion)
-        {
-            Debug.Log("needsPromotion deformity");
-            Debug.Break();
-        }
-
-        Stack<Move> copyOne = moves;
-        Stack<Move> copyTwo = TODOboard.moves;
-        if (copyOne.Count != copyTwo.Count)
-        {
-            Debug.Log("moves count deformity");
-            Debug.Break();
-        }
-        while (copyOne.Count > 0)
-        {
-            Move one = copyOne.Pop();
-            Move two = copyTwo.Pop();
-            if (!one.Equals(two))
-            {
-                Debug.Log("moves deformity: move # " + copyOne.Count);
-                Debug.Log("from = (" + one.from.file + ", " + one.from.rank + "), to = (" + one.to.file + ", " + one.to.rank + ")");
-                Debug.Log("from = (" + two.from.file + ", " + two.from.rank + "), to = (" + two.to.file + ", " + two.to.rank + ")");
-                Debug.Break();
-            }
-        }
-
-        foreach (Square s in Square.squares)
-        {
-            Piece undone = Get(s);
-            Piece original = TODOboard.Get(s);
-            if (undone == null && original == null)
-                continue;
-            if (undone == null || !undone.Equals(original))
-            {
-                Debug.Log("board deformity");
-                Debug.Log("original:\n" + TODOboard.ToString());
-                Debug.Log("after undo:\n" + ToString());
-                Debug.Break();
-                break;
-            }
-        }
-
-        if (takenPieces.Count != TODOboard.takenPieces.Count)
-        {
-            Debug.Log("takenPieces count deformity");
-            Debug.Break();
-        }
-        foreach (int i in takenPieces.Keys)
-        {
-            if (!TODOboard.takenPieces.ContainsKey(i) || !takenPieces[i].Equals(TODOboard.takenPieces[i]))
-            {
-                Debug.Log("takenPieces deformity");
-                Debug.Break();
-            }
-        }
-
-        if (sideEffects.Count != TODOboard.sideEffects.Count)
-        {
-            Debug.Log("sideEffects count deformity");
-            Debug.Break();
-        }
-        foreach (int i in sideEffects.Keys)
-        {
-            if (!TODOboard.sideEffects.ContainsKey(i) || !sideEffects[i].Equals(TODOboard.sideEffects[i]))
-            {
-                Debug.Log("sideEffects deformity");
-                Debug.Break();
-            }
-        }
-
-        if (rookKingFirstMoves.Count != TODOboard.rookKingFirstMoves.Count)
-        {
-            Debug.Log("RKFM count deformity");
-            Debug.Break();
-        }
-        foreach (Piece p in rookKingFirstMoves.Keys)
-        {
-            if (!TODOboard.rookKingFirstMoves.ContainsKey(p) || rookKingFirstMoves[p] != TODOboard.rookKingFirstMoves[p])
-            {
-                Debug.Log("rookKingFirstMoves deformity");
-                Debug.Break();
-            }
-        }
-
-        if (justDoubleStepped != TODOboard.justDoubleStepped)
-        {
-            Debug.Log("justDoubleStepped deformity");
-            Debug.Log("original: (" + TODOboard.justDoubleStepped.file + ", " + TODOboard.justDoubleStepped.rank + ")");
-            Debug.Log("after undo: (" + justDoubleStepped.file + ", " + justDoubleStepped.rank + ")");
-            Debug.Break();
-        }
-    }
-
-    // TODO: remove when done
-    private Square TODOgetKingSquare(PieceColor turn)
-    {
-        Square kingSquare = null;
-        Piece p = null;
-        foreach (Square s in Square.squares)
-        {
-            p = Get(s);
-            if (p != null && p.type == PieceType.King && p.color == turn)
-            {
-                kingSquare = s;
-                break;
-            }
-        }
-
-        if (p == null || p.type != PieceType.King || p.color != turn)
-            throw new Exception("failed");
-
-        return kingSquare;
-    }
-
     public bool Undo()
     {
         if (moveCount == 0 || status == BoardStatus.Promote)
@@ -340,11 +161,7 @@ public class Board
         Move lastMove = _moves.Pop();
         Piece movedPiece = Get(lastMove.to);
         if (lastMove.promotion != PieceType.Pawn)
-        {
-            // TODO
-            Debug.Assert(lastMove.from.rank != 0 && lastMove.from.rank != 7, "ayyo");
             movedPiece = Spawn(PieceType.Pawn, movedPiece.color, lastMove.to); // undo promotion
-        }
 
         Put(lastMove.from, movedPiece);
         Piece taken;
@@ -360,7 +177,6 @@ public class Board
         Move _sideEffect;
         if (sideEffects.TryGetValue(moveCount, out _sideEffect))
         {
-            Debug.Log("undid side effect");
             sideEffects.Remove(moveCount);
             if (_sideEffect.to == null)
             {
@@ -396,11 +212,6 @@ public class Board
             whoseTurn = Opponent(whoseTurn);
         else
             status = BoardStatus.Playing;
-
-        // TODO
-        if (TODOboard != null)
-            TODOcheckDeformities();
-        TODOboard = null;
 
         return true;
     }
@@ -456,30 +267,19 @@ public class Board
         Piece[] boardCopy = new Piece[64];
         Array.Copy(board, boardCopy, 64);
         // we won't be modifying takenPieces
-        Debug.Log("copied side effects");
         Dictionary<int, Move> sideEffectsCopy = new Dictionary<int, Move>(sideEffects);
         Dictionary<Piece, int> rookKingFirstMovesCopy = new Dictionary<Piece, int>(rookKingFirstMoves);
         Square justDoubleSteppedCopy = justDoubleStepped;
         Square needsPromotionCopy = needsPromotion; // possibly changed by PreMove
 
-        bool debug_thing = Get(move.to) == null || Get(move.to).type != PieceType.King;
-        Debug.Assert(debug_thing, "AI managed to find a 'legal' move that takes a player's king");
-        if (!debug_thing)
-        {
-            Debug.Log(ToString());
-            Debug.Log("from = (" + move.from.file + ", " + move.from.rank + "), to = " + move.to.file + ", " + move.to.rank + ")");
-        }
-
         Get(move.from).PreMove(move, this);
         // PreMove may overwrite the piece at move.from
-        Piece p = Get(move.from);
+        Put(move.to, Get(move.from));
         Put(move.from, null);
-        Put(move.to, p);
         
         bool kingInCheck = KingInCheck();
 
         board = boardCopy;
-        Debug.Log("returned copy of side effects(?)");
         sideEffects = sideEffectsCopy;
         rookKingFirstMoves = rookKingFirstMovesCopy;
         justDoubleStepped = justDoubleSteppedCopy;
@@ -576,13 +376,6 @@ public class Board
                 Piece p = Get(from);
                 if (p == null || p.color != whoseTurn)
                     continue;
-
-                // TODO
-                if (p.type == PieceType.Pawn && (from.rank == 0 || from.rank == 7))
-                {
-                    Debug.Assert(false, "somehow a pawn got to the end of the board");
-                    Debug.Break();
-                }
 
                 foreach (Move m in p.LegalMoves(from, this))
                 {
@@ -890,8 +683,6 @@ public class Board
                             }
                         }
                         else if (Square.At(x, from.rank) == board.justDoubleStepped) {
-                            //TODO
-                            Debug.Assert(to.rank != 0 && to.rank != 7, "should not happen");
                             yield return new Move(from, to);
                         }
                     }

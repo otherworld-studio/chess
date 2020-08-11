@@ -101,15 +101,7 @@ public class PlayerAI
      *  based on characteristics of BOARD. This can be improved. */
     private int MaxDepth(Board board)
     {
-        /*
-        int depth = 2;
-        int N = board.moveCount;
-        if (N >= 50)
-            depth += (N - 30) / 20;
-
-        return depth;
-        */
-        // TODO: testing
+        /* TODO: testing
         int depth = 1;
         int N = board.moveCount;
         if (N >= 50)
@@ -119,8 +111,16 @@ public class PlayerAI
         foreach (Move move in board.legalMoves)
             ++legalMoves;
 
-        if (legalMoves < 10 && depth < 5)
-            depth = 5;
+        if (legalMoves < 10 && depth < 4)
+            depth = 4;
+
+        return depth;
+        */
+
+        int depth = 2;
+        int N = board.moveCount;
+        if (N >= 50)
+            depth += (N - 30) / 20;
 
         return depth;
     }
