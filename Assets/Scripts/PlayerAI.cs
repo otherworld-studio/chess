@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using UnityEngine; // TODO
 
 using BoardStatus = Board.BoardStatus;
 using Square = Board.Square;
@@ -47,7 +46,7 @@ public class PlayerAI
                          int alpha, int beta)
     {
         BoardStatus status = board.status;
-        if (depth == 0 || (status != BoardStatus.Playing && status != BoardStatus.Promote))
+        if (depth == 0 || (status != BoardStatus.Playing)) // AI shouldn't need to think about the promote state
             return StaticScore(board);
 
         List<Move> moves = new List<Move>(board.legalMoves);
@@ -60,16 +59,8 @@ public class PlayerAI
             foreach (Move move in moves)
             {
                 board.MakeMove(move);
-                Debug.Assert(board.GetPiece(move.to) != null, "maximizer makemove fail");
                 bestVal = Math.Max(bestVal, FindMove(board, depth - 1, false, false, alpha, beta));
-                bool success = board.Undo();
-                Debug.Assert(success, "maximizer undo returned false");
-                Debug.Assert(board.GetPiece(board.moves.Pop().to) != null, "maximizer undo fail");
-                /*
-                Board tempBoard = new Board(board);
-                tempBoard.MakeMove(move);
-                bestVal = Math.Max(bestVal, FindMove(tempBoard, depth - 1, false, false, alpha, beta));
-                */
+                board.Undo();
 
                 if (bestVal > beta) // prune; black would never let this happen
                     return bestVal;
@@ -89,16 +80,8 @@ public class PlayerAI
             foreach (Move move in moves)
             {
                 board.MakeMove(move);
-                Debug.Assert(board.GetPiece(move.to) != null, "minimizer makemove fail");
                 bestVal = Math.Min(bestVal, FindMove(board, depth - 1, false, true, alpha, beta));
-                bool success = board.Undo();
-                Debug.Assert(success, "minimizer undo returned false");
-                Debug.Assert(board.GetPiece(board.moves.Pop().to) != null, "minimizer undo fail");
-                /*
-                Board tempBoard = new Board(board);
-                tempBoard.MakeMove(move);
-                bestVal = Math.Min(bestVal, FindMove(tempBoard, depth - 1, false, true, alpha, beta));
-                */
+                board.Undo();
 
                 if (bestVal < alpha) // prune; white would never let this happen
                     return bestVal;
@@ -118,6 +101,15 @@ public class PlayerAI
      *  based on characteristics of BOARD. This can be improved. */
     private int MaxDepth(Board board)
     {
+        /*
+        int depth = 2;
+        int N = board.moveCount;
+        if (N >= 50)
+            depth += (N - 30) / 20;
+
+        return depth;
+        */
+        // TODO: testing
         int depth = 1;
         int N = board.moveCount;
         if (N >= 50)
@@ -133,7 +125,7 @@ public class PlayerAI
         return depth;
     }
 
-    private static int[] PIECE_VALUES = { 1, 3, 3, 5, 9 };
+    private static readonly int[] PIECE_VALUES = { 1, 3, 3, 5, 9 };
 
     /** Return a heuristic value for BOARD. This can be improved. */
     private int StaticScore(Board board)
@@ -146,7 +138,7 @@ public class PlayerAI
             else
                 return -WIN_VALUE;
         }
-        else if (status != BoardStatus.Playing && status != BoardStatus.Promote)
+        else if (status != BoardStatus.Playing) // AI shouldn't need to think about the promote state
             return 0;
 
         int score = 0;
@@ -168,8 +160,7 @@ public class PlayerAI
         return score;
     }
 
-    // TODO:remove System
-    private static System.Random rng = new System.Random();
+    private static Random rng = new Random();
     public void Shuffle<T>(IList<T> list) // Fisher-Yates shuffle
     {
         for (int n = list.Count; --n > 0;) // skip element 0 because it would only swap with itself

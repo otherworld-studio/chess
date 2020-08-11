@@ -156,7 +156,7 @@ public class GameManager : MonoBehaviour
         }
         Reset();
 
-        playerAI = new PlayerAI(PieceColor.Black);
+        //playerAI = new PlayerAI(PieceColor.Black);
     }
 
     void Update()
@@ -227,6 +227,10 @@ public class GameManager : MonoBehaviour
                             Set(move.from, null);
                             Set(move.to, g);
 
+                            if (board.needsPromotion != null)
+                            {
+                                Debug.Log("GameManager found pawn to be promoted");
+                            }
                             UpdateScene((board.sideEffect != null) ? new List<Move>() { board.sideEffect.Value } : null);
                         }
                     }
@@ -390,6 +394,7 @@ public class GameManager : MonoBehaviour
                 }
                 break;
             case BoardStatus.Promote:
+                Debug.Log("requesting promotion...");
                 Get(board.needsPromotion).RequestPromotion();
                 break;
             case BoardStatus.Checkmate:
