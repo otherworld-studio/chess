@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -13,7 +14,6 @@ using Move = Board.Move;
 
 // TODO:
 // main menu to select between [vs. AI] or [local]
-// put AI work in a coroutine
 // online multiplayer
 // make a more robust coroutine framework?
 
@@ -49,6 +49,7 @@ public class GameManager : MonoBehaviour
     private bool resigned;
     //private List<GameObject> highlighted; // TODO: assist mode?
     private PlayerAI playerAI;
+    private Thread playerAIThread;
 
     // handles square and piece selection animation automatically; this should be null whenever UpdateScene is called
     private Square _selectedSquare;
@@ -166,21 +167,20 @@ public class GameManager : MonoBehaviour
 
         if (playerAI != null && playerAI.color == board.whoseTurn)
         {
-            /* TODO
-            if (!playerAI.isCalculating) {
-                Move move = playerAI.move;
-                if (playerAI.move != null)
-                    EXECUTE_MOVE
-                    playerAI.Reset();
-                else
-                    playerAI.FindMove(board);
+            if (playerAIThread == null)
+            {
+                playerAIThread = new Thread(new ParameterizedThreadStart(playerAI.FindMove));
+                playerAIThread.Start(new Board(board));
             }
-            */
-            Move move = playerAI.FindMove(board);
-            bool success = board.MakeMove(move);
-            Debug.Assert(success);
+            else if (!playerAIThread.IsAlive)
+            {
+                Move move = playerAI.foundMove;
+                bool success = board.MakeMove(move);
+                Debug.Assert(success);
 
-            UpdateScene((board.sideEffect != null) ? new List<Move>() { move, board.sideEffect.Value } : new List<Move>() { move });
+                UpdateScene((board.sideEffect != null) ? new List<Move>() { move, board.sideEffect.Value } : new List<Move>() { move });
+                playerAIThread = null;
+            }
         }
         else
         {

@@ -3,8 +3,10 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
-// TODO: threefold repetition: a player has the OPTION of claiming a draw if an identical position has occured at least three times during the course of the game with the same player to move each time (the third time CAN be the next position after this player makes their move, i.e. the player can claim the draw before actually making the move)
-// TODO: fifty move rule: either player has the OPTION of claiming a draw if no capture or pawn movement in the last 50 turns (100 indivial player moves)
+// TODO
+// threefold repetition: a player has the OPTION of claiming a draw if an identical position has occured at least three times during the course of the game with the same player to move each time (the third time CAN be the next position after this player makes their move, i.e. the player can claim the draw before actually making the move)
+// fifty move rule: either player has the OPTION of claiming a draw if no capture or pawn movement in the last 50 turns (100 indivial player moves)
+// replace takenPieces with Dictionary<int, PieceType> ?
 
 // Representation of an active chess game for use in a game or AI
 public class Board
@@ -19,6 +21,7 @@ public class Board
             return new Stack<Move>(arr);
         } }
     public int moveCount { get { return _moves.Count; } }
+    public int pieceCount { get; private set; }
     public Move? sideEffect { get {
             Move _sideEffect;
             if (sideEffects.TryGetValue(moveCount - 1, out _sideEffect))
@@ -43,6 +46,7 @@ public class Board
         rookKingFirstMoves = new Dictionary<Piece, int>();
 
         _moves = new Stack<Move>();
+        pieceCount = 32;
 
         for (int i = 0; i < 8; ++i)
         {
@@ -74,6 +78,7 @@ public class Board
         needsPromotion = other.needsPromotion;
 
         _moves = other.moves; // copy the stack
+        pieceCount = other.pieceCount;
 
         // because both piece and square objects are stateless (can't be modified), we don't need to deep copy anything
         board = new Piece[64];
@@ -113,15 +118,18 @@ public class Board
     {
         if (!IsLegalMove(move))
             return false;
+
+        // DEBUGboard = new Board(this);
         
         justDoubleStepped = null;
 
-        Get(move.from).PreMove(move, this); // Extra operations (e.g. take a pawn via en passant, move a rook via castling)
-        // PreMove may have replaced the piece at move.from
         Piece taken = Get(move.to);
         if (taken != null)
+        {
             takenPieces.Add(moveCount, taken);
-        Put(move.to, Get(move.from));
+            --pieceCount;
+        }
+        Put(move.to, Get(move.from).PreMove(move, this));
         Put(move.from, null);
 
         _moves.Push(move); // must be called after moveCount
@@ -148,7 +156,8 @@ public class Board
 
         return true;
     }
-
+    
+    // TODO: handle all of the piece-specific cases in another virtual method
     public bool Undo()
     {
         if (moveCount == 0 || status == BoardStatus.Promote)
@@ -164,6 +173,7 @@ public class Board
         if (takenPieces.TryGetValue(moveCount, out taken)) {
             takenPieces.Remove(moveCount);
             Put(lastMove.to, taken);
+            ++pieceCount;
         }
         else
         {
@@ -177,6 +187,7 @@ public class Board
             if (_sideEffect.to == null)
             {
                 Spawn(PieceType.Pawn, Opponent(movedPiece.color), _sideEffect.from); // undo en passant
+                ++pieceCount;
             }
             else
             {
@@ -209,8 +220,136 @@ public class Board
         else
             status = BoardStatus.Playing;
 
+        /*
+        if (DEBUGboard != null)
+            DEBUGcheckDeformities();
+        DEBUGboard = null;
+        */
+
         return true;
     }
+
+    // private Board DEBUGboard;
+
+    /*
+    private void DEBUGcheckDeformities()
+    {
+        if (status != DEBUGboard.status)
+        {
+            Debug.Log("status deformity");
+            Debug.Break();
+        }
+
+        if (whoseTurn != DEBUGboard.whoseTurn)
+        {
+            Debug.Log("whoseTurn deformity");
+            Debug.Break();
+        }
+
+        if (needsPromotion != DEBUGboard.needsPromotion)
+        {
+            Debug.Log("needsPromotion deformity");
+            Debug.Break();
+        }
+
+        Stack<Move> copyOne = moves;
+        Stack<Move> copyTwo = DEBUGboard.moves;
+        if (copyOne.Count != copyTwo.Count)
+        {
+            Debug.Log("moves count deformity");
+            Debug.Break();
+        }
+        while (copyOne.Count > 0)
+        {
+            Move one = copyOne.Pop();
+            Move two = copyTwo.Pop();
+            if (!one.Equals(two))
+            {
+                Debug.Log("moves deformity: move # " + copyOne.Count);
+                Debug.Log("from = (" + one.from.file + ", " + one.from.rank + "), to = (" + one.to.file + ", " + one.to.rank + ")");
+                Debug.Log("from = (" + two.from.file + ", " + two.from.rank + "), to = (" + two.to.file + ", " + two.to.rank + ")");
+                Debug.Break();
+            }
+        }
+
+        int debugcounter = 0;
+        foreach (Square s in Square.squares)
+        {
+            Piece undone = Get(s);
+            Piece original = DEBUGboard.Get(s);
+            if (undone == null && original == null)
+                continue;
+            if (undone == null || !undone.Equals(original))
+            {
+                Debug.Log("board deformity");
+                Debug.Log("original:\n" + DEBUGboard.ToString());
+                Debug.Log("after undo:\n" + ToString());
+                Debug.Break();
+                break;
+            }
+
+            if (undone != null)
+                ++debugcounter;
+        }
+        if (debugcounter != DEBUGboard.pieceCount)
+        {
+            Debug.Log("pieceCount deformity");
+            Debug.Log("original: " + DEBUGboard.pieceCount);
+            Debug.Log("after undo: " + debugcounter);
+            Debug.Break();
+        }
+
+        if (takenPieces.Count != DEBUGboard.takenPieces.Count)
+        {
+            Debug.Log("takenPieces count deformity");
+            Debug.Break();
+        }
+        foreach (int i in takenPieces.Keys)
+        {
+            if (!DEBUGboard.takenPieces.ContainsKey(i) || !takenPieces[i].Equals(DEBUGboard.takenPieces[i]))
+            {
+                Debug.Log("takenPieces deformity");
+                Debug.Break();
+            }
+        }
+
+        if (sideEffects.Count != DEBUGboard.sideEffects.Count)
+        {
+            Debug.Log("sideEffects count deformity");
+            Debug.Break();
+        }
+        foreach (int i in sideEffects.Keys)
+        {
+            if (!DEBUGboard.sideEffects.ContainsKey(i) || !sideEffects[i].Equals(DEBUGboard.sideEffects[i]))
+            {
+                Debug.Log("sideEffects deformity");
+                Debug.Break();
+            }
+        }
+
+        if (rookKingFirstMoves.Count != DEBUGboard.rookKingFirstMoves.Count)
+        {
+            Debug.Log("RKFM count deformity");
+            Debug.Break();
+        }
+        foreach (Piece p in rookKingFirstMoves.Keys)
+        {
+            if (!DEBUGboard.rookKingFirstMoves.ContainsKey(p) || rookKingFirstMoves[p] != DEBUGboard.rookKingFirstMoves[p])
+            {
+                Debug.Log("rookKingFirstMoves deformity");
+                Debug.Break();
+            }
+        }
+
+        if (justDoubleStepped != DEBUGboard.justDoubleStepped)
+        {
+            Debug.Log("justDoubleStepped deformity");
+            Debug.Log("original: (" + DEBUGboard.justDoubleStepped.file + ", " + DEBUGboard.justDoubleStepped.rank + ")");
+            Debug.Log("after undo: (" + justDoubleStepped.file + ", " + justDoubleStepped.rank + ")");
+            Debug.Break();
+        }
+    }
+    */
 
     public bool Promote(PieceType type)
     {
@@ -262,20 +401,20 @@ public class Board
         // Copy the game state, perform the move, and revert.
         Piece[] boardCopy = new Piece[64];
         Array.Copy(board, boardCopy, 64);
+        int pieceCountCopy = pieceCount;
         // we won't be modifying takenPieces
         Dictionary<int, Move> sideEffectsCopy = new Dictionary<int, Move>(sideEffects);
         Dictionary<Piece, int> rookKingFirstMovesCopy = new Dictionary<Piece, int>(rookKingFirstMoves);
         Square justDoubleSteppedCopy = justDoubleStepped;
         Square needsPromotionCopy = needsPromotion; // possibly changed by PreMove
 
-        Get(move.from).PreMove(move, this);
-        // PreMove may overwrite the piece at move.from
-        Put(move.to, Get(move.from));
+        Put(move.to, Get(move.from).PreMove(move, this));
         Put(move.from, null);
         
         bool kingInCheck = KingInCheck();
 
         board = boardCopy;
+        pieceCount = pieceCountCopy;
         sideEffects = sideEffectsCopy;
         rookKingFirstMoves = rookKingFirstMovesCopy;
         justDoubleStepped = justDoubleSteppedCopy;
@@ -323,15 +462,15 @@ public class Board
     private bool InsufficientMaterial()
     {
         Square whiteBishop = null, blackBishop = null;
-        int pieceCount = 0;
+        int _pieceCount = 0;
         foreach (Square s in Square.squares)
         {
             Piece p = Get(s);
             if (p == null)
                 continue;
 
-            ++pieceCount;
-            if (pieceCount > 4)
+            ++_pieceCount;
+            if (_pieceCount > 4)
                 return false;
 
             if (p.type == PieceType.King)
@@ -559,7 +698,6 @@ public class Board
         }
     }
 
-    // TODO: the same thing we did with squares -> generate all pieces at the beginning; requires instantiating every copy on the board so that we can check for each rook separately in rookKingFirstMoves
     private abstract class Piece
     {
         public readonly PieceColor color;
@@ -575,9 +713,10 @@ public class Board
 
         public abstract IEnumerable<Move> LegalMoves(Square from, Board board);
 
+        // Performs extra steps, depending on the piece's type and the move. Returns the new piece if this piece is replaced (pawn promotion) or this piece otherwise.
         // Assumes the move FROM -> TO is legal, and that promotion != PieceType.King
         // Stop changing this to PostMove! It must be PreMove because justDoubleStepped must be set to null beforehand and PreMove must know whether to en passant
-        public virtual void PreMove(Move move, Board board) { return; }
+        public virtual Piece PreMove(Move move, Board board) { return this; }
 
         public static Piece Create(PieceType type, PieceColor color)
         {
@@ -709,14 +848,14 @@ public class Board
                 }
             }
 
-            public override void PreMove(Move move, Board board)
+            public override Piece PreMove(Move move, Board board)
             {
                 if (move.to.rank == 7 || move.to.rank == 0)
                 {
                     if (move.promotion == PieceType.Pawn)
                         board.needsPromotion = move.to; // Delay piece selection
                     else
-                        board.Spawn(move.promotion, color, move.from);
+                        return board.Spawn(move.promotion, color, move.from);
                 }
                 else if (Math.Abs(move.to.rank - move.from.rank) == 2)
                 {
@@ -727,7 +866,10 @@ public class Board
                     Square enPassantSquare = Square.At(move.to.file, move.from.rank);
                     board.Put(enPassantSquare, null);
                     board.sideEffects.Add(board.moveCount, new Move(enPassantSquare, null));
+                    --board.pieceCount;
                 }
+
+                return this;
             }
         }
 
@@ -859,11 +1001,13 @@ public class Board
                 }
             }
 
-            public override void PreMove(Move move, Board board)
+            public override Piece PreMove(Move move, Board board)
             {
                 //board.rookKingFirstMoves.TryAdd(this, board.moveCount); not .NET 2.0 compatible
                 if (!board.rookKingFirstMoves.ContainsKey(this))
                     board.rookKingFirstMoves.Add(this, board.moveCount);
+
+                return this;
             }
         }
 
@@ -984,7 +1128,7 @@ public class Board
                 }
             }
 
-            public override void PreMove(Move move, Board board)
+            public override Piece PreMove(Move move, Board board)
             {
                 //board.rookKingFirstMoves.TryAdd(this, board.moveCount); not .NET 2.0 compatible
                 if (!board.rookKingFirstMoves.ContainsKey(this))
@@ -1009,6 +1153,8 @@ public class Board
 
                     board.sideEffects.Add(board.moveCount, new Move(rookSquare, newRookSquare));
                 }
+
+                return this;
             }
         }
     }
