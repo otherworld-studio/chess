@@ -1,6 +1,9 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+#if !(UNITY_WEBGL || UNITY_ENGINE)
+using System.Threading;
+#endif
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -12,7 +15,7 @@ using PieceData = Board.PieceData;
 using Move = Board.Move;
 
 // TODO:
-// AI opponent
+// main menu to select between [vs. AI] or [local]
 // online multiplayer
 // make a more robust coroutine framework?
 
@@ -32,7 +35,7 @@ public class GameManager : MonoBehaviour
 
     // TODO: add turnText to HUD, 1 HUD for each player
     [SerializeField]
-    private Text turnText, gameOverText, winnerText, debugText;
+    private Text turnText, gameOverText, winnerText;
     [SerializeField]
     private GameObject boardObject, HUD, gameOverMenu;
     [SerializeField]
@@ -46,7 +49,13 @@ public class GameManager : MonoBehaviour
     private GamePiece[] blackPiecesTaken;
     private GameObject[] highlights;
     private bool resigned;
-    private List<GameObject> highlighted; // TODO: assist mode?
+    //private List<GameObject> highlighted; // TODO: assist mode?
+    private PlayerAI playerAI;
+#if UNITY_WEBGL || UNITY_EDITOR
+    private bool findingMove;
+#else
+    private Thread playerAIThread;
+#endif
 
     // handles square and piece selection animation automatically; this should be null whenever UpdateScene is called
     private Square _selectedSquare;
@@ -153,6 +162,13 @@ public class GameManager : MonoBehaviour
 
         }
         Reset();
+
+#if UNITY_WEBGL || UNITY_EDITOR
+        playerAI = gameObject.AddComponent<PlayerAI>();
+        playerAI.color = PieceColor.Black;
+#else
+        playerAI = new PlayerAI(PieceColor.Black);
+#endif
     }
 
     void Update()
@@ -160,49 +176,81 @@ public class GameManager : MonoBehaviour
         if (updateSceneCoroutine != null || board.status != BoardStatus.Playing || resigned)
             return;
 
-        mouseSquare = GetMouseSquare();
-
-        if (Input.GetMouseButtonDown(0))
+        if (playerAI != null && playerAI.color == board.whoseTurn)
         {
-            if (mouseSquare != null)
+#if UNITY_WEBGL || UNITY_EDITOR
+            if (!findingMove)
             {
-                if (selectedSquare == null) // clicked on the board, but no previously selected square
+                playerAI.FindMove(new Board(board));
+                findingMove = true;
+            }
+            else if (!playerAI.isCalculating)
+            {
+                findingMove = false;
+#else
+            if (playerAIThread == null)
+            {
+                playerAIThread = new Thread(new ParameterizedThreadStart(playerAI.FindMove));
+                playerAIThread.Start(new Board(board));
+            }
+            else if (!playerAIThread.IsAlive)
+            {
+                playerAIThread = null;
+#endif
+                Move move = playerAI.foundMove;
+                bool success = board.MakeMove(move);
+                Debug.Assert(success);
+
+                UpdateScene((board.sideEffect != null) ? new List<Move>() { move, board.sideEffect.Value } : new List<Move>() { move });
+            }
+        }
+        else
+        {
+            mouseSquare = GetMouseSquare();
+
+            if (Input.GetMouseButtonDown(0))
+            {
+                if (mouseSquare != null)
                 {
-                    GamePiece g = Get(mouseSquare);
-                    if (g != null && g.color == board.whoseTurn) // only select if it's one of the current player's pieces
+                    if (selectedSquare == null) // clicked on the board, but no previously selected square
                     {
-                        Square temp = mouseSquare;
-                        mouseSquare = null; // remove highlight before selecting
-                        selectedSquare = temp;
+                        GamePiece g = Get(mouseSquare);
+                        if (g != null && g.color == board.whoseTurn) // only select if it's one of the current player's pieces
+                        {
+                            Square temp = mouseSquare;
+                            mouseSquare = null; // remove highlight before selecting
+                            selectedSquare = temp;
+                        }
                     }
-                }
-                else if (mouseSquare == selectedSquare)
-                {
-                    selectedSquare = null;
-                    mouseSquare = null; // ensures the piece at mouseSquare can be re-highlighted on next update
-                }
-                else // the player has attempted to make a move
-                {
-                    Move move = new Move(selectedSquare, mouseSquare);
-                    if (board.MakeMove(move))
+                    else if (mouseSquare == selectedSquare)
                     {
                         selectedSquare = null;
-                        mouseSquare = null; // ensures the piece at mouseSquare can be re-highlighted on next update
+                        mouseSquare = null; // ensures the piece at mouseSquare can be re-highlighted on next update (after piece is finished moving)
+                    }
+                    else // the player has attempted to make a move
+                    {
+                        Move move = new Move(selectedSquare, mouseSquare);
+                        if (board.MakeMove(move))
+                        {
+                            selectedSquare = null;
+                            mouseSquare = null; // ensures the piece at mouseSquare can be re-highlighted on next update (after piece is finished moving)
 
-                        GamePiece g = Get(move.from), h = Get(move.to);
-                        g.transform.position = GetSquareCenter(move.to);
-                        if (h != null)
-                        {
-                            Take(move.to);
-                            waitForPiecesCoroutine = StartCoroutine(WaitForPiecesRoutine(new List<GamePiece>() { g, h }));
-                        } else
-                        {
-                            waitForPiecesCoroutine = StartCoroutine(WaitForPiecesRoutine(new List<GamePiece>() { g }));
+                            GamePiece g = Get(move.from), h = Get(move.to);
+                            g.transform.position = GetSquareCenter(move.to);
+                            if (h != null)
+                            {
+                                Take(move.to);
+                                waitForPiecesCoroutine = StartCoroutine(WaitForPiecesRoutine(new List<GamePiece>() { g, h }));
+                            }
+                            else
+                            {
+                                waitForPiecesCoroutine = StartCoroutine(WaitForPiecesRoutine(new List<GamePiece>() { g }));
+                            }
+                            Set(move.from, null);
+                            Set(move.to, g);
+
+                            UpdateScene((board.sideEffect != null) ? new List<Move>() { board.sideEffect.Value } : null);
                         }
-                        Set(move.from, null);
-                        Set(move.to, g);
-
-                        UpdateScene((board.sideEffect != null) ? new List<Move>() { board.sideEffect.Value } : null);
                     }
                 }
             }
@@ -235,7 +283,7 @@ public class GameManager : MonoBehaviour
             else
                 Set(s, null);
         }
-        for (int i = 0; i < 30; ++i)
+        for (int i = 0; i < 15; ++i)
         {
             GamePiece g = whitePiecesTaken[i];
             GamePiece h = blackPiecesTaken[i];
@@ -275,14 +323,16 @@ public class GameManager : MonoBehaviour
         DisableHUDs();
         if ((PieceColor)player == PieceColor.White)
         {
-            gameOverText.text = "White resigns";
-            winnerText.text = "Black wins!";
+            gameOverText.text = "Player 1 resigns";
+            gameOverText.color = Color.white;
+            winnerText.text = "Player 2 wins!";
             winnerText.color = Color.black;
         }
         else
         {
-            gameOverText.text = "Black resigns";
-            winnerText.text = "White wins!";
+            gameOverText.text = "Player 2 resigns";
+            gameOverText.color = Color.black;
+            winnerText.text = "Player 1 wins!";
             winnerText.color = Color.white;
         }
         gameOverMenu.SetActive(true);
@@ -326,7 +376,7 @@ public class GameManager : MonoBehaviour
                     Destroy(Get(m.to).gameObject);
                     Spawn(board.GetPiece(m.to).Value, m.to);
                 }
-                else
+                else // castles and regular moves
                 {
                     GamePiece g = Get(m.from);
                     g.Move(GetSquareCenter(m.from), GetSquareCenter(m.to));
@@ -342,7 +392,11 @@ public class GameManager : MonoBehaviour
                     Set(m.from, null);
                     Set(m.to, g);
 
-                    // TODO: handle AI automatic promotions
+                    if (m.promotion != PieceType.Pawn) // promotion
+                    {
+                        Destroy(g.gameObject);
+                        Spawn(board.GetPiece(m.to).Value, m.to);
+                    }
                 }
             }
         }
@@ -352,12 +406,12 @@ public class GameManager : MonoBehaviour
             case BoardStatus.Playing:
                 if (board.whoseTurn == PieceColor.White)
                 {
-                    turnText.text = "White's move";
+                    turnText.text = "Player 1's move";
                     turnText.color = Color.white;
                 }
                 else
                 {
-                    turnText.text = "Black's move";
+                    turnText.text = "Player 2's move";
                     turnText.color = Color.black;
                 }
                 break;
@@ -369,12 +423,14 @@ public class GameManager : MonoBehaviour
                 gameOverText.text = "Checkmate!";
                 if (board.whoseTurn == PieceColor.White)
                 {
-                    winnerText.text = "White wins!";
+                    gameOverText.color = Color.white;
+                    winnerText.text = "Player 1 wins!";
                     winnerText.color = Color.white;
                 }
                 else
                 {
-                    winnerText.text = "Black wins!";
+                    gameOverText.color = Color.black;
+                    winnerText.text = "Player 2 wins!";
                     winnerText.color = Color.black;
                 }
                 gameOverMenu.SetActive(true);
@@ -383,14 +439,32 @@ public class GameManager : MonoBehaviour
                 DisableHUDs();
                 gameOverText.text = "Stalemate!";
                 winnerText.text = "Draw";
-                winnerText.color = (board.whoseTurn == PieceColor.White) ? Color.white : Color.black;
+                if (board.whoseTurn == PieceColor.White)
+                {
+                    gameOverText.color = Color.white;
+                    winnerText.color = Color.white;
+                }
+                else
+                {
+                    gameOverText.color = Color.black;
+                    winnerText.color = Color.black;
+                }
                 gameOverMenu.SetActive(true);
                 break;
             case BoardStatus.InsufficientMaterial:
                 DisableHUDs();
                 gameOverText.text = "Insufficient material to force a checkmate!";
                 winnerText.text = "Draw";
-                winnerText.color = (board.whoseTurn == PieceColor.White) ? Color.white : Color.black;
+                if (board.whoseTurn == PieceColor.White)
+                {
+                    gameOverText.color = Color.white;
+                    winnerText.color = Color.white;
+                }
+                else
+                {
+                    gameOverText.color = Color.black;
+                    winnerText.color = Color.black;
+                }
                 gameOverMenu.SetActive(true);
                 break;
         }
@@ -442,12 +516,12 @@ public class GameManager : MonoBehaviour
     {
         if (board.whoseTurn == PieceColor.White)
         {
-            turnText.text = "White's move";
+            turnText.text = "Player 1's move";
             turnText.color = Color.white;
         }
         else
         {
-            turnText.text = "Black's move";
+            turnText.text = "Player 2's move";
             turnText.color = Color.black;
         }
         HUD.SetActive(true);
@@ -497,7 +571,7 @@ public class GameManager : MonoBehaviour
         }
         start = boardCorner;
         Debug.DrawLine(start, start + tileForward * 8);
-        for (int j = 0; j < 8; ++j) // Vertical lines
+        for (int i = 0; i < 8; ++i) // Vertical lines
         {
             start += tileRight;
             Debug.DrawLine(start, start + tileForward * 8);

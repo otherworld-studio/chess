@@ -174,10 +174,11 @@ public class GamePiece : MonoBehaviour
 
         Debug.Assert(mesh.subMeshCount == 1); // as long as this is true, the label of each vertex in the triangles array should match its index in the following arrays
         Vector3[] vertices = mesh.vertices;
-        Debug.Assert(mesh.vertexCount == vertices.Count()); // sanity check
+        int vertexCount = mesh.vertexCount;
+        Debug.Assert(vertexCount == vertices.Count()); // sanity check
         int[] triangles = mesh.triangles; // {1a, 1b, 1c, 2a, 2b, 2c, etc.}
 
-        Vector3[] results = new Vector3[mesh.vertexCount];
+        Vector3[] results = new Vector3[vertexCount];
         Debug.Assert(results[0] == Vector3.zero);
         int stopCondition = mesh.triangles.Count();
         for (int i = 0; i < stopCondition; i += 3)
@@ -198,9 +199,9 @@ public class GamePiece : MonoBehaviour
 
         // build map of duplicates (each set of duplicates is a cycle -> getting the set of duplicates amounts to iterating around the cycle)
         // also keep a list of the first index of each cycle/set, the "representative"
-        int[] map = new int[mesh.vertexCount];
+        int[] map = new int[vertexCount];
         List<int> representatives = new List<int>();
-        for (int i = 0; i < mesh.vertexCount; ++i)
+        for (int i = 0; i < vertexCount; ++i)
         {
             bool match = false;
             foreach (int rep in representatives)
@@ -222,7 +223,7 @@ public class GamePiece : MonoBehaviour
         }
 
         // assign new normals as vertex colors
-        Color[] colors = new Color[mesh.vertexCount];
+        Color[] colors = new Color[vertexCount];
         foreach (int rep in representatives)
         {
             int i = rep;
