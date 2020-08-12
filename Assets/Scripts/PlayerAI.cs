@@ -8,20 +8,131 @@ using PieceColor = Board.PieceColor;
 using PieceData = Board.PieceData;
 using Move = Board.Move;
 
+#if UNITY_WEBGL || UNITY_EDITOR
+using System.Collections;
+using System.Diagnostics;
+using UnityEngine;
+
+public class PlayerAI : MonoBehaviour
+{
+    public PieceColor color;
+
+    public bool isCalculating { get { return findMoveCoroutine != null; } }
+
+    public void FindMove(Board board)
+    {
+        if (findMoveCoroutine != null)
+            StopCoroutine(findMoveCoroutine);
+
+        findMoveCoroutine = StartCoroutine(FindMoveRoutine(board));
+    }
+
+    Coroutine findMoveCoroutine;
+    private IEnumerator FindMoveRoutine(Board board)
+    {
+        Stopwatch clock = Stopwatch.StartNew();
+        IEnumerator<int?> enumerator = FindMove(board, MaxDepth(board), true, color == PieceColor.White, -INFINITY, INFINITY);
+        while (enumerator.MoveNext())
+        {
+            if (clock.Elapsed.TotalSeconds >= 0.001) // TODO: better performance solution: https://stackoverflow.com/questions/2055927/ienumerable-and-recursion-using-yield-return
+            {
+                yield return null;
+                clock.Restart();
+            }
+        }
+
+        findMoveCoroutine = null;
+    }
+
+    private IEnumerator<int?> FindMove(Board board, int depth, bool saveMove, bool max, int alpha, int beta)
+    {
+        BoardStatus status = board.status;
+        if (depth == 0 || (status != BoardStatus.Playing)) // AI shouldn't need to think about the promote state
+        {
+            yield return StaticScore(board);
+            yield break;
+        }
+
+        List<Move> moves = new List<Move>(board.legalMoves);
+        if (saveMove)
+            Shuffle(moves);
+
+        if (max)
+        {
+            int bestVal = -INFINITY;
+            foreach (Move move in moves)
+            {
+                board.MakeMove(move);
+                int moveVal = 0;
+                IEnumerator<int?> enumerator = FindMove(board, depth - 1, false, false, alpha, beta);
+                yield return null;
+                while (enumerator.MoveNext())
+                {
+                    if (enumerator.Current != null)
+                        moveVal = enumerator.Current.Value;
+                    yield return null;
+                }
+                bestVal = Math.Max(bestVal, moveVal);
+                board.Undo();
+
+                if (bestVal > beta) // prune; black would never let this happen
+                {
+                    yield return bestVal;
+                    yield break;
+                }
+
+                if (bestVal > alpha) // this is the best option for white on the path to root (overall)
+                {
+                    alpha = bestVal;
+                    if (saveMove)
+                        foundMove = move;
+                }
+            }
+            yield return bestVal; // the best (maximal) value for white from this board position (not necessarily overall)
+        }
+        else
+        {
+            int bestVal = INFINITY;
+            foreach (Move move in moves)
+            {
+                board.MakeMove(move);
+                int moveVal = 0;
+                IEnumerator<int?> enumerator = FindMove(board, depth - 1, false, true, alpha, beta);
+                yield return null;
+                while (enumerator.MoveNext())
+                {
+                    if (enumerator.Current != null)
+                        moveVal = enumerator.Current.Value;
+                    yield return null;
+                }
+                bestVal = Math.Min(bestVal, moveVal);
+                board.Undo();
+
+                if (bestVal < alpha) // prune; white would never let this happen
+                {
+                    yield return bestVal;
+                    yield break;
+                }
+
+                if (bestVal < beta) // this is the best option for black on the path to root (overall)
+                {
+                    beta = bestVal;
+                    if (saveMove)
+                        foundMove = move;
+                }
+            }
+            yield return bestVal; // the best (minimal) value for black from this board position (not necessarily overall)
+        }
+    }
+#else
 public class PlayerAI
 {
     public readonly PieceColor color;
-
-    /** The move found by the last call to FindMove. */
-    public Move foundMove { get; private set; }
 
     public PlayerAI(PieceColor _color)
     {
         color = _color;
     }
-
-    private const int INFINITY = int.MaxValue; // -INFINITY will not overflow
-    private const int WIN_VALUE = INFINITY - 1; // must be strictly less than INFINITY (and -WIN_VALUE > -INFINITY) if we are to guarantee that a move is returned
 
     /** Return a move for this player from the current position, assuming such a move exists.
      *  Must be this player's turn. BOARD may be modified (copying BOARD is GameManager's responsibility). */
@@ -93,6 +204,10 @@ public class PlayerAI
             return bestVal; // the best (minimal) value for black from this board position (not necessarily overall)
         }
     }
+#endif
+
+    /** The move found by the last call to FindMove. */
+    public Move foundMove { get; private set; }
 
     /** Return a heuristically determined maximum search depth
      *  based on characteristics of BOARD. This can be improved. */
@@ -105,8 +220,6 @@ public class PlayerAI
 
         return depth;
     }
-
-    private static readonly int[] PIECE_VALUES = { 1, 3, 3, 5, 9 };
 
     /** Return a heuristic value for BOARD. This can be improved. */
     private int StaticScore(Board board)
@@ -154,4 +267,8 @@ public class PlayerAI
             list[n] = temp;
         }
     }
+
+    private const int INFINITY = int.MaxValue; // -INFINITY will not overflow
+    private const int WIN_VALUE = INFINITY - 1; // must be strictly less than INFINITY (and -WIN_VALUE > -INFINITY) if we are to guarantee that a move is returned
+    private static readonly int[] PIECE_VALUES = { 1, 3, 3, 5, 9 };
 }

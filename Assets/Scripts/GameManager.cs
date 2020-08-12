@@ -1,7 +1,9 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+#if !(UNITY_WEBGL || UNITY_ENGINE)
 using System.Threading;
+#endif
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -49,7 +51,11 @@ public class GameManager : MonoBehaviour
     private bool resigned;
     //private List<GameObject> highlighted; // TODO: assist mode?
     private PlayerAI playerAI;
+#if UNITY_WEBGL || UNITY_EDITOR
+    private bool findingMove;
+#else
     private Thread playerAIThread;
+#endif
 
     // handles square and piece selection animation automatically; this should be null whenever UpdateScene is called
     private Square _selectedSquare;
@@ -157,7 +163,12 @@ public class GameManager : MonoBehaviour
         }
         Reset();
 
+#if UNITY_WEBGL || UNITY_EDITOR
+        playerAI = gameObject.AddComponent<PlayerAI>();
+        playerAI.color = PieceColor.Black;
+#else
         playerAI = new PlayerAI(PieceColor.Black);
+#endif
     }
 
     void Update()
@@ -167,6 +178,16 @@ public class GameManager : MonoBehaviour
 
         if (playerAI != null && playerAI.color == board.whoseTurn)
         {
+#if UNITY_WEBGL || UNITY_EDITOR
+            if (!findingMove)
+            {
+                playerAI.FindMove(new Board(board));
+                findingMove = true;
+            }
+            else if (!playerAI.isCalculating)
+            {
+                findingMove = false;
+#else
             if (playerAIThread == null)
             {
                 playerAIThread = new Thread(new ParameterizedThreadStart(playerAI.FindMove));
@@ -174,12 +195,13 @@ public class GameManager : MonoBehaviour
             }
             else if (!playerAIThread.IsAlive)
             {
+                playerAIThread = null;
+#endif
                 Move move = playerAI.foundMove;
                 bool success = board.MakeMove(move);
                 Debug.Assert(success);
 
                 UpdateScene((board.sideEffect != null) ? new List<Move>() { move, board.sideEffect.Value } : new List<Move>() { move });
-                playerAIThread = null;
             }
         }
         else
